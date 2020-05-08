@@ -1,0 +1,12 @@
+namespace api;
+
+table Entry {
+  create_timestamp:ulong;
+  expiry_timestamp:ulong;
+  data:[ubyte];
+  lang:string;
+  burn:bool;
+  encrypted:bool;
+}
+
+root_type Entry;
