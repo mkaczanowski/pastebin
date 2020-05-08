@@ -11,4 +11,5 @@ RUN cargo install --path .
 FROM debian:buster-slim
 COPY --from=builder /usr/local/cargo/bin/pastebin /usr/local/bin/pastebin
 
-CMD ["pastebin"]
+ENTRYPOINT ["pastebin"]
+CMD ["--help"]
