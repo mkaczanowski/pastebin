@@ -274,9 +274,8 @@ fn get_url(cfg: &PastebinConfig) -> String {
     }
 }
 
-fn get_error_response(html: String, status: Status, cfg: &PastebinConfig) -> Response {
+fn get_error_response<'r>(html: String, status: Status) -> Response<'r> {
     let map = btreemap! {
-        "hostname" => cfg.address.as_str(),
         "version" => VERSION,
         "is_error" => "true",
     };
@@ -330,7 +329,6 @@ fn get<'r>(
     lang: Option<String>,
     state: State<'r, DB>,
     resources: State<'r, HashMap<&str, &[u8]>>,
-    cfg: State<PastebinConfig>,
 ) -> Response<'r> {
     let html = String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
 
@@ -344,7 +342,6 @@ fn get<'r>(
             };
 
             let map = btreemap! {
-                "hostname" => cfg.address.as_str(),
                 "version" => VERSION,
                 "is_error" => "true",
             };
@@ -371,7 +368,6 @@ fn get<'r>(
         "pastebin_code" => std::str::from_utf8(entry.data().unwrap()).unwrap().to_string(),
         "pastebin_id" => id,
         "pastebin_language" => selected_lang,
-        "hostname" => cfg.address.clone(),
         "version" => VERSION.to_string(),
     };
 
@@ -409,7 +405,6 @@ fn get<'r>(
 fn get_new<'r>(
     state: State<'r, DB>,
     resources: State<'r, HashMap<&str, &[u8]>>,
-    cfg: State<PastebinConfig>,
     id: Option<String>,
     level: Option<String>,
     glyph: Option<String>,
@@ -425,7 +420,6 @@ fn get_new<'r>(
 
     let mut map = btreemap! {
         "is_editable" => "true",
-        "hostname" => cfg.address.as_str(),
         "version" => VERSION,
         "msg" => msg.as_str(),
         "level" => level.as_str(),
@@ -497,7 +491,6 @@ fn get_binary(id: String, state: State<DB>) -> Response {
 fn get_static<'r>(
     resource: String,
     resources: State<'r, HashMap<&str, &[u8]>>,
-    cfg: State<'r, PastebinConfig>,
 ) -> Response<'r> {
     let pth = format!("../static/{}", resource);
     let ext = get_extension(resource.as_str()).replace(".", "");
@@ -507,7 +500,7 @@ fn get_static<'r>(
         None => {
             let html =
                 String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
-            return get_error_response(html, Status::NotFound, cfg.inner());
+            return get_error_response(html, Status::NotFound);
         }
     };
     let content_type = ContentType::from_extension(ext.as_str()).unwrap();
