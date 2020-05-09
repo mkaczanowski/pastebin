@@ -64,11 +64,11 @@
                     {{/if}}
                 </ul>
 
-                <div class="form-inline mt-2 mt-md-0">
+                <div class="form-inline">
                     {{#if is_editable}}
-                    <input class="form-control mr-sm-2" id="pastebin-password" type="password" placeholder="Password (optional)" aria-label="Password (optional)">
+                    <input class="form-control" id="pastebin-password" type="password" placeholder="Password (optional)" aria-label="Password (optional)">
                     {{/if}}
-                    <select class="form-control mr-sm-2" id="language-selector">
+                    <select class="form-control ml-md-2 mt-2 mt-md-0" id="language-selector">
                         <option value="markup">Markup</option>
                         <option value="css">CSS</option>
                         <option value="clike">C-like</option>
@@ -224,14 +224,14 @@
                         <option value="yaml">YAML</option>
                     </select>
                     {{#if is_created}}
-                        <a id="copy-btn" class="btn btn-outline-success mb-0" href="#">Copy</a>
+                        <a id="copy-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Copy</a>
                         {{#if (not is_burned)}}
-                            <a class="btn btn-outline-success mb-0 ml-2" href="/raw/{{pastebin_id}}">Raw</a>
-                            <a class="btn btn-outline-success mb-0 ml-2" href="/download/{{pastebin_id}}">Download</a>
+                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="/raw/{{pastebin_id}}">Raw</a>
+                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="/download/{{pastebin_id}}">Download</a>
                         {{/if}}
                     {{/if}}
                     {{#if is_editable}}
-                        <a id="send-btn" class="btn btn-outline-success  mb-3 mb-md-0" href="#">Send</a>
+                        <a id="send-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Send</a>
                     {{/if}}
                 </div>
             </div>
@@ -250,7 +250,7 @@
             </div>
 	        {{ else }}
         	    {{#if msg}}
-        	    <div class="mt-3 alert alert-{{level}} alert-dismissible fade show" role="alert">
+                <div class="mt-3 alert alert-{{level}} alert-dismissible fade show" role="alert">
                     {{#if glyph}}<i class="{{glyph}}"></i>{{/if}}
                     {{#if url}}{{msg}} <a href="{{url}}">{{url}}</a>{{else}}{{msg}}{{/if}}
                     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
