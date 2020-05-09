@@ -242,6 +242,12 @@ struct PastebinConfig {
         help = "Path to private key for tls-certs in PEM format"
     )]
     tls_key: Option<String>,
+
+    #[structopt(
+        long = "domain",
+        help = "Domain name used to generate URL",
+    )]
+    domain: Option<String>,
 }
 
 fn get_url(cfg: &PastebinConfig) -> String {
@@ -260,7 +266,7 @@ fn get_url(cfg: &PastebinConfig) -> String {
         "{scheme}://{address}{port}",
         scheme = scheme,
         port = port,
-        address = cfg.address,
+        address = cfg.domain.clone().unwrap_or_else(|| cfg.address.clone()),
     )
 }
 
