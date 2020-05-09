@@ -206,7 +206,7 @@ struct PastebinConfig {
     #[structopt(
         long = "workers",
         help = "Number of concurrent thread workers",
-        default_value = "8"
+        default_value = "0"
     )]
     workers: u16,
 
@@ -517,10 +517,15 @@ fn index() -> Redirect {
 fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
     // parse command line opts
     let environ: Environment = pastebin_config.environment.parse().unwrap();
+    let workers = if pastebin_config.workers != 0 {
+        pastebin_config.workers
+    } else {
+        num_cpus::get() as u16 * 2
+    };
     let mut rocket_config = Config::build(environ)
         .address(pastebin_config.address.clone())
         .port(pastebin_config.port)
-        .workers(pastebin_config.workers)
+        .workers(workers)
         .keep_alive(pastebin_config.keep_alive)
         .log_level(pastebin_config.log)
         .finalize()
