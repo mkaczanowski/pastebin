@@ -244,10 +244,10 @@ struct PastebinConfig {
     tls_key: Option<String>,
 
     #[structopt(
-        long = "domain",
-        help = "Domain name used to generate URL",
+        long = "uri",
+        help = "Override default URI",
     )]
-    domain: Option<String>,
+    uri: Option<String>,
 }
 
 fn get_url(cfg: &PastebinConfig) -> String {
@@ -262,12 +262,16 @@ fn get_url(cfg: &PastebinConfig) -> String {
         "http"
     };
 
-    format!(
-        "{scheme}://{address}{port}",
-        scheme = scheme,
-        port = port,
-        address = cfg.domain.clone().unwrap_or_else(|| cfg.address.clone()),
-    )
+    if cfg.uri.is_some() {
+        cfg.uri.clone().unwrap()
+    } else {
+        format!(
+            "{scheme}://{address}{port}",
+            scheme = scheme,
+            port = port,
+            address = cfg.address,
+        )
+    }
 }
 
 fn get_error_response(html: String, status: Status, cfg: &PastebinConfig) -> Response {
