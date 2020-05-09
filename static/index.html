@@ -224,14 +224,14 @@
                         <option value="yaml">YAML</option>
                     </select>
                     {{#if is_created}}
-                        <a id="copy-btn" class="btn btn-outline-success d-none d-lg-inline-block mb-3 mb-md-0" href="#">Copy</a>
+                        <a id="copy-btn" class="btn btn-outline-success mb-0" href="#">Copy</a>
                         {{#if (not is_burned)}}
-                            <a class="btn btn-outline-success d-none d-lg-inline-block mb-3 mb-md-0 ml-md-2" href="/raw/{{pastebin_id}}">Raw</a>
-                            <a class="btn btn-outline-success d-none d-lg-inline-block mb-3 mb-md-0 ml-md-2" href="/download/{{pastebin_id}}">Download</a>
+                            <a class="btn btn-outline-success mb-0 ml-2" href="/raw/{{pastebin_id}}">Raw</a>
+                            <a class="btn btn-outline-success mb-0 ml-2" href="/download/{{pastebin_id}}">Download</a>
                         {{/if}}
                     {{/if}}
                     {{#if is_editable}}
-                        <a id="send-btn" class="btn btn-outline-success d-none d-lg-inline-block mb-3 mb-md-0" href="#">Send</a>
+                        <a id="send-btn" class="btn btn-outline-success  mb-3 mb-md-0" href="#">Send</a>
                     {{/if}}
                 </div>
             </div>
