@@ -14,7 +14,7 @@
 Simple, fast, standalone pastebin service.
 
 ## Why?
-Whenever you need to share a code snippet, diff, logs, or a secret with another human being, the Pastebin service is invaluable. However, using public services such as pastebin.com, privnote.com, etc. should be avoided whenever you're sharing data that should be available only for a selected audience (i.e., your company, private network). Instead of trusting external providers, you could host your own Pastebin service and take ownership of all your data!
+Whenever you need to share a code snippet, diff, logs, or a secret with another human being, the Pastebin service is invaluable. However, using public services such as pastebin.com, privnote.com, etc. should be avoided when you're sharing data that should be available only for a selected audience (i.e., your company, private network). Instead of trusting external providers, you could host your own Pastebin service and take ownership of all your data!
 
 **There are numerous [Pastebin implementations](https://github.com/awesome-selfhosted/awesome-selfhosted#pastebins) out there, why would you implement another one?**
 
@@ -34,7 +34,7 @@ While the other implementation is great, I couldn't find one that would satisfy 
 This Pastebin implementation satisfies all of the above requirements!
 
 ## Implementation
-This is a rust version of Pastebin service with [rocksdb](https://rocksdb.org/) database as storage. In addition to previously mentioned feature I should add:
+This is a rust version of Pastebin service with [rocksdb](https://rocksdb.org/) database as storage. In addition to previously mentioned features it's worth to mention:
 * all-in-one binary - all the data, including css/javascript files are compiled into the binary. This way you don't need to worry about external dependencies, it's all witin. (see: [std::include_bytes](https://doc.rust-lang.org/std/macro.include_bytes.html))
 * [REST endpoint](https://rocket.rs/) - you can add/delete pastes via standard HTTP client (ie. curl)
 * [RocksDB compaction filter](https://github.com/facebook/rocksdb/wiki/Compaction-Filter) - the expired pastes will be automatically removed by custom compaction filter
