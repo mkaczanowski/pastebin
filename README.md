@@ -2,6 +2,7 @@
 [![Docker Cloud Build Status][docker-cloud-build-status]][docker-hub]
 [![Docker Pulls][docker-pulls]][docker-hub]
 [![Docker Image Size][docker-size]][docker-hub]
+[![Test and Build][github-workflow]][github-workflow]
 
 [travis-badge]: https://travis-ci.org/mkaczanowski/pastebin.svg?branch=master
 [travis]: https://travis-ci.org/mkaczanowski/pastebin/
@@ -9,6 +10,7 @@
 [docker-cloud-build-status]: https://img.shields.io/docker/cloud/build/mkaczanowski/pastebin
 [docker-pulls]: https://img.shields.io/docker/pulls/mkaczanowski/pastebin
 [docker-size]: https://img.shields.io/docker/image-size/mkaczanowski/pastebin
+[github-workflow]: https://github.com/mkaczanowski/pastebin/workflows/Test%20and%20Build/badge.svg
 
 # Pastebin
 Simple, fast, standalone pastebin service.
