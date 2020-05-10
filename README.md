@@ -1,8 +1,8 @@
 [![Build Status][travis-badge]][travis]
+[![Test and Build][github-workflow]][github-workflow]
 [![Docker Cloud Build Status][docker-cloud-build-status]][docker-hub]
 [![Docker Pulls][docker-pulls]][docker-hub]
 [![Docker Image Size][docker-size]][docker-hub]
-[![Test and Build][github-workflow]][github-workflow]
 
 [travis-badge]: https://travis-ci.org/mkaczanowski/pastebin.svg?branch=master
 [travis]: https://travis-ci.org/mkaczanowski/pastebin/
