@@ -28,10 +28,10 @@ While the other implementation is great, I couldn't find one that would satisfy 
 * cheap - low-cost service that would not steal too much of CPU time, thus add up to your bill
 * CLI + GUI - it must be easy to interface from both ends (but still, no deps!)
 * other features:
-** on-demand encryption
-** syntax highlighting
-** destroy after reading
-** destroy after expiration date
+    * on-demand encryption
+    * syntax highlighting
+    * destroy after reading
+    * destroy after expiration date
 
 This Pastebin implementation satisfies all of the above requirements!
 
