@@ -161,7 +161,7 @@ At first glance, the performance is pretty good. In the simplest scenario (5 con
 
 As we add more concurrent clients, the rps drops a bit (`794 rps`) but still provides a good timing (p95 `38.67ms`) with high throughput at `47699` request made in 15s window (3x compared to Test 1).
 
-The CPU utilization is at 100% on every core available. The memory usage is stable at `~13 Mb RSS`.
+The CPU utilization is at 100% on every core available and the memory usage is stable at `~13 Mb RSS`.
 
 ## Demo
 [![Pastebin service demo](https://i.imgur.com/Fv19H71.png)](https://www.youtube.com/watch?v=BG7f61H7C4I "Pastebin service demo")
