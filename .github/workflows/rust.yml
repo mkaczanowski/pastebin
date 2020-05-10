@@ -1,22 +1,18 @@
-name: Rust
-
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
+name: Test Rust project
+on: [push]
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [nightly]
 
     steps:
-    - uses: actions/checkout@v2
-    - name: rust-toolchain
-      uses: actions-rs/toolchain@v1.0.6
-      with: 
-        toolchain: nightly
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: ${{ matrix.rust }}
+    - uses: actions/checkout@master
     - name: Build
       run: cargo build --verbose
     - name: Run tests
