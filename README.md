@@ -60,7 +60,7 @@ docker run mkaczanowski/pastebin --address localhost --port 8000
 
 ### Client
 ```
-alias pastebin="curl -q -L -d @- -o - http://localhost:8000/"
+alias pastebin="curl -q -L --data-binary @- -o - http://localhost:8000/"
 
 echo "hello World" | pastebin
 http://localhost:8000/T9kGrI5aNkI4Z-PelmQ5U
