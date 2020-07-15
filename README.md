@@ -20,12 +20,12 @@ Whenever you need to share a code snippet, diff, logs, or a secret with another 
 
 **There are numerous [Pastebin implementations](https://github.com/awesome-selfhosted/awesome-selfhosted#pastebins) out there, why would you implement another one?**
 
-While the other implementation is great, I couldn't find one that would satisfy my requirements:
+While the other implementations are great, I couldn't find one that would satisfy my requirements:
 * no dependencies - one binary is all I want, no python libs, ruby runtime magic, no javascript or external databases to setup
 * storage - fast, lightweight, self-hosted key-value storage able to hold a lot of data.
 * speed - it must be fast. Once deployed in a mid-sized company you can expect high(er) traffic with low latency expectations from users
 * reliability - no one wants to fix things that should just work (and are that simple!)
-* cheap - low-cost service that would not steal too much of CPU time, thus add up to your bill
+* cheap - low-cost service that would not steal too much CPU time, thus adding up to your bill
 * CLI + GUI - it must be easy to interface from both ends (but still, no deps!)
 * other features:
     * on-demand encryption
@@ -37,7 +37,7 @@ This Pastebin implementation satisfies all of the above requirements!
 
 ## Implementation
 This is a rust version of Pastebin service with [rocksdb](https://rocksdb.org/) database as storage. In addition to previously mentioned features it's worth to mention:
-* all-in-one binary - all the data, including css/javascript files are compiled into the binary. This way you don't need to worry about external dependencies, it's all witin. (see: [std::include_bytes](https://doc.rust-lang.org/std/macro.include_bytes.html))
+* all-in-one binary - all the data, including css/javascript files are compiled into the binary. This way you don't need to worry about external dependencies, it's all within. (see: [std::include_bytes](https://doc.rust-lang.org/std/macro.include_bytes.html))
 * [REST endpoint](https://rocket.rs/) - you can add/delete pastes via standard HTTP client (ie. curl)
 * [RocksDB compaction filter](https://github.com/facebook/rocksdb/wiki/Compaction-Filter) - the expired pastes will be automatically removed by custom compaction filter
 * [flatbuffers](https://google.github.io/flatbuffers/) - data is serialized with flatbuffers (access to serialized data without parsing/unpacking)
@@ -45,7 +45,7 @@ This is a rust version of Pastebin service with [rocksdb](https://rocksdb.org/) 
 * Encryption - password-protected pastes are AES encrypted/decprypted in the browser via [CryptoJS](https://code.google.com/archive/p/crypto-js/)
 
 ## Usage
-Pastebin builds only with `rust-nightly` version and requires `llvm` compiler to be present (rocksdb deps). To skip the build process, you can use the docker image.
+Pastebin builds only with `rust-nightly` version and requires `llvm` compiler (rocksdb deps). To skip the build process, you can use the docker image.
 
 ### Cargo
 ```
