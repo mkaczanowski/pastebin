@@ -55,7 +55,7 @@ cargo run
 ### Docker
 ```
 docker pull mkaczanowski/pastebin:latest
-docker run mkaczanowski/pastebin --address localhost --port 8000
+docker run --network host mkaczanowski/pastebin --address localhost --port 8000
 ```
 
 ### Client
