@@ -25,6 +25,7 @@ use api_generated::api::get_root_as_entry;
 use std::collections::HashMap;
 use std::io;
 use std::io::Cursor;
+use std::path::Path;
 
 use rocket::config::{Config, Environment};
 use rocket::http::{ContentType, Status};
@@ -248,6 +249,13 @@ struct PastebinConfig {
         help = "Override default URI",
     )]
     uri: Option<String>,
+
+    #[structopt(
+        long = "uri-prefix",
+        help = "Prefix appended to the URI (ie. '/pastebin')",
+        default_value = ""
+    )]
+    uri_prefix: String,
 }
 
 fn get_url(cfg: &PastebinConfig) -> String {
@@ -274,10 +282,15 @@ fn get_url(cfg: &PastebinConfig) -> String {
     }
 }
 
-fn get_error_response<'r>(html: String, status: Status) -> Response<'r> {
+fn get_error_response<'r>(
+    uri_prefix: String,
+    html: String,
+    status: Status,
+) -> Response<'r> {
     let map = btreemap! {
         "version" => VERSION,
         "is_error" => "true",
+        "uri_prefix" => uri_prefix.as_str(),
     };
 
     let content = Handlebars::new()
@@ -329,6 +342,7 @@ fn get<'r>(
     lang: Option<String>,
     state: State<'r, DB>,
     resources: State<'r, HashMap<&str, &[u8]>>,
+    cfg: State<PastebinConfig>,
 ) -> Response<'r> {
     let html = String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
 
@@ -344,6 +358,7 @@ fn get<'r>(
             let map = btreemap! {
                 "version" => VERSION,
                 "is_error" => "true",
+                "uri_prefix" => cfg.uri_prefix.as_str(),
             };
 
             let content = Handlebars::new()
@@ -369,6 +384,7 @@ fn get<'r>(
         "pastebin_id" => id,
         "pastebin_language" => selected_lang,
         "version" => VERSION.to_string(),
+        "uri_prefix" => cfg.uri_prefix.clone(),
     };
 
     if entry.burn() {
@@ -404,6 +420,7 @@ fn get<'r>(
 #[get("/new?<id>&<level>&<msg>&<glyph>&<url>")]
 fn get_new<'r>(
     state: State<'r, DB>,
+    cfg: State<PastebinConfig>,
     resources: State<'r, HashMap<&str, &[u8]>>,
     id: Option<String>,
     level: Option<String>,
@@ -425,6 +442,7 @@ fn get_new<'r>(
         "level" => level.as_str(),
         "glyph" => glyph.as_str(),
         "url" => url.as_str(),
+        "uri_prefix" => cfg.uri_prefix.as_str(),
     };
 
     if let Some(id) = id {
@@ -491,6 +509,7 @@ fn get_binary(id: String, state: State<DB>) -> Response {
 fn get_static<'r>(
     resource: String,
     resources: State<'r, HashMap<&str, &[u8]>>,
+    cfg: State<PastebinConfig>,
 ) -> Response<'r> {
     let pth = format!("../static/{}", resource);
     let ext = get_extension(resource.as_str()).replace(".", "");
@@ -500,7 +519,7 @@ fn get_static<'r>(
         None => {
             let html =
                 String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
-            return get_error_response(html, Status::NotFound);
+            return get_error_response(cfg.uri_prefix.clone(), html, Status::NotFound);
         }
     };
     let content_type = ContentType::from_extension(ext.as_str()).unwrap();
@@ -513,8 +532,10 @@ fn get_static<'r>(
 }
 
 #[get("/")]
-fn index() -> Redirect {
-    Redirect::to("/new")
+fn index(cfg: State<PastebinConfig>) -> Redirect {
+    let url = String::from(Path::new(cfg.uri_prefix.as_str()).join("new").to_str().unwrap());
+
+    Redirect::to(url)
 }
 
 fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
@@ -551,6 +572,7 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
     db_opts.create_if_missing(true);
     db_opts.set_compaction_filter("ttl_entries", compaction_filter_expired_entries);
 
+    let uri_prefix = pastebin_config.uri_prefix.clone();
     let resources = load_static_resources!(
         "../static/index.html",
         "../static/custom.js",
@@ -566,7 +588,7 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
         .manage(db)
         .manage(resources)
         .mount(
-            "/",
+            if uri_prefix == "" { "/" } else { uri_prefix.as_str() },
             routes![index, create, remove, get, get_new, get_raw, get_binary, get_static],
         )
 }

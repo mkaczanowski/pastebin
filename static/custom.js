@@ -57,7 +57,7 @@ $(document).ready(function() {
 			url: window.location.pathname,
 			type: 'DELETE',
 			success: function(result) {
-				uri = "/new";
+				uri = uri_prefix + "/new";
 				uri = replaceUrlParam(uri, 'level', "info");
 				uri = replaceUrlParam(uri, 'glyph', "fas fa-info-circle");
 				uri = replaceUrlParam(uri, 'msg', "The paste has been successfully removed.");
@@ -85,7 +85,7 @@ $(document).ready(function() {
 	$("#send-btn").on("click", function(event) {
 		event.preventDefault();
 
-		uri = "/";
+		uri = uri_prefix == "" ? "/" : uri_prefix;
 		uri = replaceUrlParam(uri, 'lang', $("#language-selector").val());
 		uri = replaceUrlParam(uri, 'ttl', state.expiry);
 		uri = replaceUrlParam(uri, 'burn', state.burn);
@@ -103,7 +103,7 @@ $(document).ready(function() {
 			type: 'POST',
 			data: data,
 			success: function(result) {
-				uri = "/new";
+				uri = uri_prefix + "/new";
 				uri = replaceUrlParam(uri, 'level', "success");
 				uri = replaceUrlParam(uri, 'glyph', "fas fa-check");
 				uri = replaceUrlParam(uri, 'msg', "The paste has been successfully created:");

@@ -12,20 +12,20 @@
         <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css" crossorigin="anonymous">
 
-        <link href="/static/prism.css" rel="stylesheet" />
-        <link href="/static/custom.css" rel="stylesheet" />
+        <link href="{{uri_prefix}}/static/prism.css" rel="stylesheet" />
+        <link href="{{uri_prefix}}/static/custom.css" rel="stylesheet" />
     </head>
 
     <body>
         <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-            <a class="navbar-brand" href="/">PASTEBIN</a>
+            <a class="navbar-brand" href="{{uri_prefix}}/new">PASTEBIN</a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <ul class="navbar-nav mr-auto">
                     <li class="nav-item active">
-                        <a class="nav-link" href="/new">New <span class="sr-only">(current)</span></a>
+                        <a class="nav-link" href="{{uri_prefix}}/new">New <span class="sr-only">(current)</span></a>
                     </li>
 		            {{#if is_created}}
 		            	{{#if (not is_burned)}}
@@ -33,7 +33,7 @@
                     		  <a class="nav-link" href="#" id="remove-btn">Remove</a>
                     		</li>
                     		<li class="nav-item">
-                    		  <a class="nav-link" href="/new?id={{pastebin_id}}" id="clone-btn">Clone</a>
+                                 <a class="nav-link" href="{{uri_prefix}}/new?id={{pastebin_id}}" id="clone-btn">Clone</a>
                     		</li>
 		            	{{/if}}
 		            {{/if}}
@@ -226,8 +226,8 @@
                     {{#if is_created}}
                         <a id="copy-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Copy</a>
                         {{#if (not is_burned)}}
-                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="/raw/{{pastebin_id}}">Raw</a>
-                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="/download/{{pastebin_id}}">Download</a>
+                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{uri_prefix}}/raw/{{pastebin_id}}">Raw</a>
+                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{uri_prefix}}/download/{{pastebin_id}}">Download</a>
                         {{/if}}
                     {{/if}}
                     {{#if is_editable}}
@@ -307,13 +307,14 @@
     </div>
 	{{/if}}
 
+    <script>var uri_prefix="{{uri_prefix}}"</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/js/bootstrap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-notify/0.2.0/js/bootstrap-notify.min.js"></script>
-    <script src="/static/prism.js"></script>
-    <script src="/static/custom.js"></script>
+    <script src="{{uri_prefix}}/static/prism.js"></script>
+    <script src="{{uri_prefix}}/static/custom.js"></script>
     </body>
 </html>
