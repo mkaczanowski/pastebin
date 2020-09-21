@@ -14,6 +14,7 @@ extern crate num_cpus;
 extern crate speculate;
 extern crate structopt;
 extern crate chrono;
+extern crate regex;
 
 #[macro_use]
 mod lib;
@@ -38,6 +39,7 @@ use rocksdb::{Options, DB};
 use structopt::StructOpt;
 use chrono::NaiveDateTime;
 use speculate::speculate;
+use regex::Regex;
 
 speculate! {
     use super::rocket;
@@ -256,6 +258,20 @@ struct PastebinConfig {
         default_value = ""
     )]
     uri_prefix: String,
+
+    #[structopt(
+        long = "slug-charset",
+        help = "Character set to use for generating the URL slug",
+        default_value = "[A-Za-z0-9_-]"
+    )]
+    slug_charset: String,
+
+    #[structopt(
+        long = "slug-len",
+        help = "Length of URL slug",
+        default_value = "21"
+    )]
+    slug_len: usize,
 }
 
 fn get_url(cfg: &PastebinConfig) -> String {
@@ -308,12 +324,14 @@ fn create(
     paste: Data,
     state: State<DB>,
     cfg: State<PastebinConfig>,
+    alphabet: State<Vec<char>>,
     lang: Option<String>,
     ttl: Option<u64>,
     burn: Option<bool>,
     encrypted: Option<bool>,
 ) -> Result<String, io::Error> {
-    let id = nanoid!();
+    let slug_len = cfg.inner().slug_len;
+    let id = nanoid!(slug_len, alphabet.inner());
     let url = format!("{url}/{id}", url = get_url(cfg.inner()), id = id);
 
     let mut writer: Vec<u8> = vec![];
@@ -572,6 +590,24 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
     db_opts.create_if_missing(true);
     db_opts.set_compaction_filter("ttl_entries", compaction_filter_expired_entries);
 
+    let alphabet = {
+        let re = Regex::new(&pastebin_config.slug_charset).unwrap();
+
+        let mut tmp = [0; 4];
+        let mut alphabet: Vec<char> = vec![];
+
+        // match all printable ASCII characters
+        for i in 0x20 .. 0x7e as u8 {
+            let c = i as char;
+
+            if re.is_match(c.encode_utf8(&mut tmp)) {
+                alphabet.push(c.clone());
+            }
+        }
+
+        alphabet
+    };
+
     let uri_prefix = pastebin_config.uri_prefix.clone();
     let resources = load_static_resources!(
         "../static/index.html",
@@ -587,6 +623,7 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
         .manage(pastebin_config)
         .manage(db)
         .manage(resources)
+        .manage(alphabet)
         .mount(
             if uri_prefix == "" { "/" } else { uri_prefix.as_str() },
             routes![index, create, remove, get, get_new, get_raw, get_binary, get_static],
