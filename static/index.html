@@ -38,19 +38,13 @@
 		            	{{/if}}
 		            {{/if}}
 
-		            {{#if is_editable}}
+                    {{#if is_editable}}
                     <li class="nav-item dropdown">
-                        <a id="expiry-dropdown-btn" class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Expires: Never</a>
+                        <a id="expiry-dropdown-btn" class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Expires: {{ui_expiry_default}}</a>
                         <div class="dropdown-menu" id="expiry-dropdown">
-                            <a class="dropdown-item" href="300">5 minutes</a>
-                            <a class="dropdown-item" href="600">10 minutes</a>
-                            <a class="dropdown-item" href="3600">1 hour</a>
-                            <a class="dropdown-item" href="86400">1 day</a>
-                            <a class="dropdown-item" href="604800">1 week</a>
-                            <a class="dropdown-item" href="2419200">1 month</a>
-                            <a class="dropdown-item" href="29030400">1 year</a>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item" href="0">Never</a>
+                            {{#each ui_expiry_times as |value key|}}
+                            <a class="dropdown-item" href="{{value}}">{{key}}</a>
+                            {{/each}}
                         </div>
                     </li>
 
@@ -259,7 +253,7 @@
                 </div>
         	{{/if}}
 
-			{{# if is_editable}}
+			{{#if is_editable}}
             <div class="form-group">
                 <textarea class="form-control" id="content-textarea" rows="25">{{pastebin_code}}</textarea>
             </div>

@@ -5,8 +5,6 @@
 extern crate rocket;
 #[macro_use]
 extern crate structopt_derive;
-#[macro_use]
-extern crate maplit;
 extern crate flatbuffers;
 extern crate handlebars;
 extern crate nanoid;
@@ -24,6 +22,7 @@ mod api_generated;
 use api_generated::api::get_root_as_entry;
 
 use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io;
 use std::io::Cursor;
 use std::path::Path;
@@ -33,12 +32,14 @@ use rocket::http::{ContentType, Status};
 use rocket::response::{Redirect, Response};
 use rocket::{Data, State};
 
+use humantime::parse_duration;
 use handlebars::Handlebars;
-use nanoid::nanoid;
 use rocksdb::{Options, DB};
 use structopt::StructOpt;
 use chrono::NaiveDateTime;
 use speculate::speculate;
+use serde_json::json;
+use nanoid::nanoid;
 use regex::Regex;
 
 speculate! {
@@ -272,6 +273,13 @@ struct PastebinConfig {
         default_value = "21"
     )]
     slug_len: usize,
+
+    #[structopt(
+        long = "ui-expiry-times",
+        help = "List of paste expiry times redered in the UI dropdown selector",
+        default_value = "5 minutes, 10 minutes, 1 hour, 1 day, 1 week, 1 month, 1 year, Never"
+    )]
+    ui_expiry_times: Vec<String>,
 }
 
 fn get_url(cfg: &PastebinConfig) -> String {
@@ -303,11 +311,11 @@ fn get_error_response<'r>(
     html: String,
     status: Status,
 ) -> Response<'r> {
-    let map = btreemap! {
-        "version" => VERSION,
-        "is_error" => "true",
-        "uri_prefix" => uri_prefix.as_str(),
-    };
+    let map = json!({
+        "version": VERSION,
+        "is_error": "true",
+        "uri_prefix": uri_prefix,
+    });
 
     let content = Handlebars::new()
         .render_template(html.as_str(), &map)
@@ -360,6 +368,8 @@ fn get<'r>(
     lang: Option<String>,
     state: State<'r, DB>,
     resources: State<'r, HashMap<&str, &[u8]>>,
+    ui_expiry_times: State<'r, BTreeMap<String, u64>>,
+    ui_expiry_default: State<'r, String>,
     cfg: State<PastebinConfig>,
 ) -> Response<'r> {
     let html = String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
@@ -373,11 +383,11 @@ fn get<'r>(
                 _ => Status::InternalServerError,
             };
 
-            let map = btreemap! {
-                "version" => VERSION,
-                "is_error" => "true",
-                "uri_prefix" => cfg.uri_prefix.as_str(),
-            };
+            let map = json!({
+                "version": VERSION,
+                "is_error": "true",
+                "uri_prefix": cfg.uri_prefix
+            });
 
             let content = Handlebars::new()
                 .render_template(html.as_str(), &map)
@@ -396,32 +406,31 @@ fn get<'r>(
         .unwrap_or_else(|| entry.lang().unwrap().to_string())
         .to_lowercase();
 
-    let mut map = btreemap! {
-        "is_created" => "true".to_string(),
-        "pastebin_code" => std::str::from_utf8(entry.data().unwrap()).unwrap().to_string(),
-        "pastebin_id" => id,
-        "pastebin_language" => selected_lang,
-        "version" => VERSION.to_string(),
-        "uri_prefix" => cfg.uri_prefix.clone(),
-    };
+    let mut map = json!({
+        "is_created": "true",
+        "pastebin_code": std::str::from_utf8(entry.data().unwrap()).unwrap(),
+        "pastebin_id": id,
+        "pastebin_language": selected_lang,
+        "version": VERSION,
+        "uri_prefix": cfg.uri_prefix,
+        "ui_expiry_times": ui_expiry_times.inner(),
+        "ui_expiry_default": ui_expiry_default.inner(),
+    });
 
     if entry.burn() {
-        map.insert(
-            "msg",
-            "FOR YOUR EYES ONLY. The paste is gone, after you close this window.".to_string(),
-        );
-        map.insert("level", "warning".to_string());
-        map.insert("is_burned", "true".to_string());
-        map.insert("glyph", "fa fa-fire".to_string());
+        map["msg"] = json!("FOR YOUR EYES ONLY. The paste is gone, after you close this window.");
+        map["level"] = json!("warning");
+        map["is_burned"] = json!("true");
+        map["glyph"] = json!("fa fa-fire");
     } else if entry.expiry_timestamp() != 0 {
         let time = NaiveDateTime::from_timestamp(entry.expiry_timestamp() as i64, 0).format("%Y-%m-%d %H:%M:%S");
-        map.insert("msg", format!("This paste will expire on {}.", time));
-        map.insert("level", "info".to_string());
-        map.insert("glyph", "far fa-clock".to_string());
+        map["msg"] = json!(format!("This paste will expire on {}.", time));
+        map["level"] = json!("info");
+        map["glyph"] = json!("far fa-clock");
     }
 
     if entry.encrypted() {
-        map.insert("is_encrypted", "true".to_string());
+        map["is_encrypted"] = json!("true");
     }
 
     let content = Handlebars::new()
@@ -440,6 +449,8 @@ fn get_new<'r>(
     state: State<'r, DB>,
     cfg: State<PastebinConfig>,
     resources: State<'r, HashMap<&str, &[u8]>>,
+    ui_expiry_times: State<'r, BTreeMap<String, u64>>,
+    ui_expiry_default: State<'r, String>,
     id: Option<String>,
     level: Option<String>,
     glyph: Option<String>,
@@ -453,27 +464,28 @@ fn get_new<'r>(
     let url = url.unwrap_or_else(|| String::from(""));
     let root: Vec<u8>;
 
-    let mut map = btreemap! {
-        "is_editable" => "true",
-        "version" => VERSION,
-        "msg" => msg.as_str(),
-        "level" => level.as_str(),
-        "glyph" => glyph.as_str(),
-        "url" => url.as_str(),
-        "uri_prefix" => cfg.uri_prefix.as_str(),
-    };
+    let mut map = json!({
+        "is_editable": "true",
+        "version": VERSION,
+        "msg": msg,
+        "level": level,
+        "glyph": glyph,
+        "url": url,
+        "uri_prefix": cfg.uri_prefix,
+        "ui_expiry_times": ui_expiry_times.inner(),
+        "ui_expiry_default": ui_expiry_default.inner(),
+    });
 
     if let Some(id) = id {
         root = get_entry_data(&id, &state).unwrap();
         let entry = get_root_as_entry(&root);
 
         if entry.encrypted() {
-            map.insert("is_encrypted", "true");
+            map["is_encrypted"] = json!("true");
         }
 
-        map.insert(
-            "pastebin_code",
-            std::str::from_utf8(entry.data().unwrap()).unwrap(),
+        map["pastebin_code"] = json!(
+            std::str::from_utf8(entry.data().unwrap()).unwrap()
         );
     }
 
@@ -590,6 +602,7 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
     db_opts.create_if_missing(true);
     db_opts.set_compaction_filter("ttl_entries", compaction_filter_expired_entries);
 
+    // define slug URL alphabet
     let alphabet = {
         let re = Regex::new(&pastebin_config.slug_charset).unwrap();
 
@@ -608,6 +621,31 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
         alphabet
     };
 
+    // setup drop down expiry menu (for instance 1m, 20m, 1 year, never)
+    let ui_expiry_times = {
+        let mut all = BTreeMap::new();
+        for item in pastebin_config.ui_expiry_times.clone() {
+            for sub_elem in item.split(',') {
+                if sub_elem.trim().to_lowercase() == "never" {
+                    all.insert(sub_elem.trim().to_string(), 0);
+                } else {
+                    all.insert(sub_elem.trim().to_string(), parse_duration(sub_elem).unwrap().as_secs());
+                }
+	     }
+	}
+
+        all
+    };
+
+    let ui_expiry_default: String = ui_expiry_times
+        .iter()
+        .filter_map(|(key, &val)| if val == pastebin_config.ttl { Some(key.clone()) } else { None })
+        .collect();
+
+    if ui_expiry_default.is_empty() {
+        panic!("the TTL flag should match one of the ui-expiry-times option");
+    }
+
     let uri_prefix = pastebin_config.uri_prefix.clone();
     let resources = load_static_resources!(
         "../static/index.html",
@@ -624,6 +662,8 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
         .manage(db)
         .manage(resources)
         .manage(alphabet)
+        .manage(ui_expiry_times)
+        .manage(ui_expiry_default)
         .mount(
             if uri_prefix == "" { "/" } else { uri_prefix.as_str() },
             routes![index, create, remove, get, get_new, get_raw, get_binary, get_static],

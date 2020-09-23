@@ -1,12 +1,13 @@
 [package]
 name = "pastebin"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Kaczanowski Mateusz <kaczanowski.mateusz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 rocket = { version = "0.4.4", features = ["tls"] }
 regex = "1"
+humantime = "2.0.1"
 rocksdb = "0.13.0"
 nanoid = "0.3.0"
 flatbuffers = "0.6.1"
@@ -14,7 +15,7 @@ structopt = "0.3.17"
 structopt-derive = "0.4.10"
 num_cpus = "1.0"
 handlebars = "3.0.1"
-maplit = "1.0.2"
 tempdir = "0.3.7"
 speculate = "0.1.2"
 chrono = "0.4.11"
+serde_json = "1.0.57"

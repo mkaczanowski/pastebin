@@ -29,19 +29,24 @@ $(document).ready(function() {
 		}
 	}
 
+    function getDefaultExpiryTime() {
+        var expiry = $("#expiry-dropdown-btn").text().split("Expires: ")[1];
+        return $("#expiry-dropdown a:contains('"+ expiry +"')").attr('href');
+    }
+
 	function checkPasswordModal() {
 		if ($("#password-modal").length) {
 			$('#password-modal').modal('toggle');
 		}
 	}
 
-	var state = {
-		expiry: 0,
-		burn: 0,
-	};
-
 	resetLanguageSelector();
 	checkPasswordModal();
+
+	var state = {
+		expiry: getDefaultExpiryTime(),
+		burn: 0,
+	};
 
 	$("#language-selector").change(function() {
 		if ($("#pastebin-code-block").length) {
