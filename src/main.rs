@@ -262,7 +262,7 @@ struct PastebinConfig {
 
     #[structopt(
         long = "slug-charset",
-        help = "Character set to use for generating the URL slug",
+        help = "Character set (expressed as rust compatible regex) to use for generating the URL slug",
         default_value = "[A-Za-z0-9_-]"
     )]
     slug_charset: String,
@@ -644,6 +644,14 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
 
     if ui_expiry_default.is_empty() {
         panic!("the TTL flag should match one of the ui-expiry-times option");
+    }
+
+    if pastebin_config.slug_len == 0 {
+        panic!("slug_len must be larger than zero");
+    }
+
+    if alphabet.len() == 0 {
+        panic!("selected slug alphabet is empty, please check if slug_charset is a valid regex");
     }
 
     let uri_prefix = pastebin_config.uri_prefix.clone();
