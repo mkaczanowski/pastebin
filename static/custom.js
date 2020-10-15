@@ -42,6 +42,7 @@ $(document).ready(function() {
 
 	resetLanguageSelector();
 	checkPasswordModal();
+	initMermaid();
 
 	var state = {
 		expiry: getDefaultExpiryTime(),
@@ -52,6 +53,7 @@ $(document).ready(function() {
 		if ($("#pastebin-code-block").length) {
 			$('#pastebin-code-block').attr('class', 'language-' + $("#language-selector").val());
 			Prism.highlightElement($('#pastebin-code-block')[0]);
+			initMermaid();
 		}
 	});
 
@@ -150,6 +152,7 @@ $(document).ready(function() {
             if ($("#pastebin-code-block").length) {
 			    $("#pastebin-code-block").text(decrypted);
 			    Prism.highlightElement($('#pastebin-code-block')[0]);
+			    initMermaid();
             } else {
 			    $("#content-textarea").text(decrypted);
             }
@@ -159,3 +162,7 @@ $(document).ready(function() {
 		}
 	});
 });
+
+function initMermaid() {
+	mermaid.init(undefined, ".language-mermaid");
+}

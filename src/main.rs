@@ -657,6 +657,7 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
     let uri_prefix = pastebin_config.uri_prefix.clone();
     let resources = load_static_resources!(
         "../static/index.html",
+        "../static/mermaid.min.js",
         "../static/custom.js",
         "../static/custom.css",
         "../static/prism.js",
