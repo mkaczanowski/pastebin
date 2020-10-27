@@ -44,6 +44,19 @@ This is a rust version of Pastebin service with [rocksdb](https://rocksdb.org/) 
 * GUI - the UI is a plain HTML with [Bootstrap JS](https://getbootstrap.com/), [jQuery](https://jquery.com/) and [prism.js](https://prismjs.com/)
 * Encryption - password-protected pastes are AES encrypted/decprypted in the browser via [CryptoJS](https://code.google.com/archive/p/crypto-js/)
 
+### Plugins
+The default configuration enables only one plugin, this is syntax highlighting through `prism.js`. This should be enough for p90 of the users but if you need extra features you might want to use the plugin system (`src/plugins`).
+
+To enable additional plugins, pass:
+```
+--plugins prism <custom_plugin_name>
+```
+
+Currently supported:
+* [prism.js](https://prismjs.com/)
+* [mermaid.js](https://github.com/mermaid-js/mermaid)
+
+
 ## Usage
 Pastebin builds only with `rust-nightly` version and requires `llvm` compiler (rocksdb deps). To skip the build process, you can use the docker image.
 
