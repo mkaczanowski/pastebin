@@ -12,18 +12,18 @@ mod api_generated;
 use crate::api_generated::api::{finish_entry_buffer, get_root_as_entry, Entry, EntryArgs};
 
 #[macro_export]
-macro_rules! load_static_resources {
-    ( $( $x:expr ),* ) => {
+macro_rules! load_static_resources(
+    { $($key:expr => $value:expr),+ } => {
         {
-            let mut resources: HashMap<&str, &[u8]> = HashMap::new();
+            let mut resources: HashMap<&'static str, &'static [u8]> = HashMap::new();
             $(
-                resources.insert($x, include_bytes!($x));
+                resources.insert($key, include_bytes!($value));
             )*
 
             resources
         }
-    };
-}
+     };
+);
 
 pub fn compaction_filter_expired_entries(
     _: u32,

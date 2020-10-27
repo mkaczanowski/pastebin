@@ -9,11 +9,10 @@
         <title>Pastebin</title>
 
         <link rel="icon" href="/static/favicon.ico">
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css" crossorigin="anonymous">
 
-        <link href="{{uri_prefix}}/static/prism.css" rel="stylesheet" />
-        <link href="{{uri_prefix}}/static/custom.css" rel="stylesheet" />
+        {{#each css_imports as |url|}}
+        <link href="{{format_url ../uri_prefix url}}" rel="stylesheet" />
+        {{/each}}
     </head>
 
     <body>
@@ -27,16 +26,16 @@
                     <li class="nav-item active">
                         <a class="nav-link" href="{{uri_prefix}}/new">New <span class="sr-only">(current)</span></a>
                     </li>
-		            {{#if is_created}}
-		            	{{#if (not is_burned)}}
-                    		<li class="nav-item">
-                    		  <a class="nav-link" href="#" id="remove-btn">Remove</a>
-                    		</li>
-                    		<li class="nav-item">
+                    {{#if is_created}}
+                        {{#if (not is_burned)}}
+                            <li class="nav-item">
+                              <a class="nav-link" href="#" id="remove-btn">Remove</a>
+                            </li>
+                            <li class="nav-item">
                                  <a class="nav-link" href="{{uri_prefix}}/new?id={{pastebin_id}}" id="clone-btn">Clone</a>
-                    		</li>
-		            	{{/if}}
-		            {{/if}}
+                            </li>
+                        {{/if}}
+                    {{/if}}
 
                     {{#if is_editable}}
                     <li class="nav-item dropdown">
@@ -242,8 +241,8 @@
                     </div>
                 </div>
             </div>
-	        {{ else }}
-        	    {{#if msg}}
+            {{ else }}
+                {{#if msg}}
                 <div class="mt-3 alert alert-{{level}} alert-dismissible fade show" role="alert">
                     {{#if glyph}}<i class="{{glyph}}"></i>{{/if}}
                     {{#if url}}{{msg}} <a href="{{url}}">{{url}}</a>{{else}}{{msg}}{{/if}}
@@ -251,16 +250,16 @@
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-        	{{/if}}
+            {{/if}}
 
-			{{#if is_editable}}
+            {{#if is_editable}}
             <div class="form-group">
                 <textarea class="form-control" id="content-textarea" rows="25">{{pastebin_code}}</textarea>
             </div>
-			{{/if}}
-			{{#if is_created or is_clone}}
-			<pre><code id="pastebin-code-block" class="language-{{pastebin_language}}">{{pastebin_code}}</code></pre>
-			{{/if}}
+            {{/if}}
+            {{#if is_created or is_clone}}
+            <pre><code id="pastebin-code-block" class="language-{{pastebin_language}}">{{pastebin_code}}</code></pre>
+            {{/if}}
         {{/if}}
     </main>
 
@@ -268,7 +267,7 @@
         <span class="text-muted ml-4"><a href="https://github.com/mkaczanowski/pastebin"><i class="fab fa-github"></i></a> - pastebin v{{version}}</span>
     </footer>
 
-	{{#if is_encrypted}}
+    {{#if is_encrypted}}
     <div class="modal fade" id="password-modal" tabindex="-1" role="dialog" aria-labelledby="password-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -299,16 +298,19 @@
             </div>
         </div>
     </div>
-	{{/if}}
+    {{/if}}
 
-    <script>var uri_prefix="{{uri_prefix}}"</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/js/bootstrap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-notify/0.2.0/js/bootstrap-notify.min.js"></script>
-    <script src="{{uri_prefix}}/static/prism.js"></script>
-    <script src="{{uri_prefix}}/static/custom.js"></script>
+    <script>
+        var uri_prefix="{{uri_prefix}}";
+
+        function init_plugins() {
+            {{#each js_init as |fn|}}{{fn}}
+            {{/each}}
+        }
+
+    </script>
+    {{#each js_imports as |url|}}
+    <script src="{{format_url ../uri_prefix url}}"></script>
+    {{/each}}
     </body>
 </html>

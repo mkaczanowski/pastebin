@@ -5,23 +5,27 @@
 extern crate rocket;
 #[macro_use]
 extern crate structopt_derive;
+extern crate chrono;
 extern crate flatbuffers;
 extern crate handlebars;
 extern crate nanoid;
 extern crate num_cpus;
+extern crate regex;
 extern crate speculate;
 extern crate structopt;
-extern crate chrono;
-extern crate regex;
+
+mod formatter;
 
 #[macro_use]
 mod lib;
 use lib::{compaction_filter_expired_entries, get_entry_data, get_extension, new_entry};
 
+mod plugins;
+use plugins::plugin::{Plugin, PluginManager};
+
 mod api_generated;
 use api_generated::api::get_root_as_entry;
 
-use std::collections::HashMap;
 use std::collections::BTreeMap;
 use std::io;
 use std::io::Cursor;
@@ -32,15 +36,15 @@ use rocket::http::{ContentType, Status};
 use rocket::response::{Redirect, Response};
 use rocket::{Data, State};
 
-use humantime::parse_duration;
-use handlebars::Handlebars;
-use rocksdb::{Options, DB};
-use structopt::StructOpt;
 use chrono::NaiveDateTime;
-use speculate::speculate;
-use serde_json::json;
+use handlebars::Handlebars;
+use humantime::parse_duration;
 use nanoid::nanoid;
 use regex::Regex;
+use rocksdb::{Options, DB};
+use serde_json::json;
+use speculate::speculate;
+use structopt::StructOpt;
 
 speculate! {
     use super::rocket;
@@ -247,10 +251,7 @@ struct PastebinConfig {
     )]
     tls_key: Option<String>,
 
-    #[structopt(
-        long = "uri",
-        help = "Override default URI",
-    )]
+    #[structopt(long = "uri", help = "Override default URI")]
     uri: Option<String>,
 
     #[structopt(
@@ -267,11 +268,7 @@ struct PastebinConfig {
     )]
     slug_charset: String,
 
-    #[structopt(
-        long = "slug-len",
-        help = "Length of URL slug",
-        default_value = "21"
-    )]
+    #[structopt(long = "slug-len", help = "Length of URL slug", default_value = "21")]
     slug_len: usize,
 
     #[structopt(
@@ -280,6 +277,13 @@ struct PastebinConfig {
         default_value = "5 minutes, 10 minutes, 1 hour, 1 day, 1 week, 1 month, 1 year, Never"
     )]
     ui_expiry_times: Vec<String>,
+
+    #[structopt(
+        long = "plugins",
+        help = "Enable additional functionalities (ie. prism, mermaid)",
+        default_value = "prism"
+    )]
+    plugins: Vec<String>,
 }
 
 fn get_url(cfg: &PastebinConfig) -> String {
@@ -307,6 +311,7 @@ fn get_url(cfg: &PastebinConfig) -> String {
 }
 
 fn get_error_response<'r>(
+    handlebars: &Handlebars<'r>,
     uri_prefix: String,
     html: String,
     status: Status,
@@ -317,9 +322,7 @@ fn get_error_response<'r>(
         "uri_prefix": uri_prefix,
     });
 
-    let content = Handlebars::new()
-        .render_template(html.as_str(), &map)
-        .unwrap();
+    let content = handlebars.render_template(html.as_str(), &map).unwrap();
 
     Response::build()
         .status(status)
@@ -367,12 +370,14 @@ fn get<'r>(
     id: String,
     lang: Option<String>,
     state: State<'r, DB>,
-    resources: State<'r, HashMap<&str, &[u8]>>,
+    handlebars: State<'r, Handlebars>,
+    plugin_manager: State<PluginManager>,
     ui_expiry_times: State<'r, BTreeMap<String, u64>>,
     ui_expiry_default: State<'r, String>,
     cfg: State<PastebinConfig>,
 ) -> Response<'r> {
-    let html = String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
+    let resources = plugin_manager.static_resources();
+    let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).to_string();
 
     // handle missing entry
     let root = match get_entry_data(&id, &state) {
@@ -386,12 +391,13 @@ fn get<'r>(
             let map = json!({
                 "version": VERSION,
                 "is_error": "true",
-                "uri_prefix": cfg.uri_prefix
+                "uri_prefix": cfg.uri_prefix,
+                "js_imports": plugin_manager.js_imports(),
+                "css_imports": plugin_manager.css_imports(),
+                "js_init": plugin_manager.js_init(),
             });
 
-            let content = Handlebars::new()
-                .render_template(html.as_str(), &map)
-                .unwrap();
+            let content = handlebars.render_template(html.as_str(), &map).unwrap();
 
             return Response::build()
                 .status(err_kind)
@@ -415,6 +421,9 @@ fn get<'r>(
         "uri_prefix": cfg.uri_prefix,
         "ui_expiry_times": ui_expiry_times.inner(),
         "ui_expiry_default": ui_expiry_default.inner(),
+        "js_imports": plugin_manager.js_imports(),
+        "css_imports": plugin_manager.css_imports(),
+        "js_init": plugin_manager.js_init(),
     });
 
     if entry.burn() {
@@ -423,7 +432,8 @@ fn get<'r>(
         map["is_burned"] = json!("true");
         map["glyph"] = json!("fa fa-fire");
     } else if entry.expiry_timestamp() != 0 {
-        let time = NaiveDateTime::from_timestamp(entry.expiry_timestamp() as i64, 0).format("%Y-%m-%d %H:%M:%S");
+        let time = NaiveDateTime::from_timestamp(entry.expiry_timestamp() as i64, 0)
+            .format("%Y-%m-%d %H:%M:%S");
         map["msg"] = json!(format!("This paste will expire on {}.", time));
         map["level"] = json!("info");
         map["glyph"] = json!("far fa-clock");
@@ -433,9 +443,7 @@ fn get<'r>(
         map["is_encrypted"] = json!("true");
     }
 
-    let content = Handlebars::new()
-        .render_template(html.as_str(), &map)
-        .unwrap();
+    let content = handlebars.render_template(html.as_str(), &map).unwrap();
 
     Response::build()
         .status(Status::Ok)
@@ -447,8 +455,9 @@ fn get<'r>(
 #[get("/new?<id>&<level>&<msg>&<glyph>&<url>")]
 fn get_new<'r>(
     state: State<'r, DB>,
+    handlebars: State<Handlebars>,
     cfg: State<PastebinConfig>,
-    resources: State<'r, HashMap<&str, &[u8]>>,
+    plugin_manager: State<PluginManager>,
     ui_expiry_times: State<'r, BTreeMap<String, u64>>,
     ui_expiry_default: State<'r, String>,
     id: Option<String>,
@@ -457,7 +466,8 @@ fn get_new<'r>(
     msg: Option<String>,
     url: Option<String>,
 ) -> Response<'r> {
-    let html = String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
+    let resources = plugin_manager.static_resources();
+    let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).to_string();
     let msg = msg.unwrap_or_else(|| String::from(""));
     let level = level.unwrap_or_else(|| String::from("secondary"));
     let glyph = glyph.unwrap_or_else(|| String::from(""));
@@ -474,6 +484,9 @@ fn get_new<'r>(
         "uri_prefix": cfg.uri_prefix,
         "ui_expiry_times": ui_expiry_times.inner(),
         "ui_expiry_default": ui_expiry_default.inner(),
+        "js_imports": plugin_manager.js_imports(),
+        "css_imports": plugin_manager.css_imports(),
+        "js_init": plugin_manager.js_init(),
     });
 
     if let Some(id) = id {
@@ -484,14 +497,10 @@ fn get_new<'r>(
             map["is_encrypted"] = json!("true");
         }
 
-        map["pastebin_code"] = json!(
-            std::str::from_utf8(entry.data().unwrap()).unwrap()
-        );
+        map["pastebin_code"] = json!(std::str::from_utf8(entry.data().unwrap()).unwrap());
     }
 
-    let content = Handlebars::new()
-        .render_template(html.as_str(), &map)
-        .unwrap();
+    let content = handlebars.render_template(html.as_str(), &map).unwrap();
 
     Response::build()
         .status(Status::Ok)
@@ -538,18 +547,26 @@ fn get_binary(id: String, state: State<DB>) -> Response {
 #[get("/static/<resource>")]
 fn get_static<'r>(
     resource: String,
-    resources: State<'r, HashMap<&str, &[u8]>>,
+    handlebars: State<Handlebars>,
+    plugin_manager: State<PluginManager>,
     cfg: State<PastebinConfig>,
 ) -> Response<'r> {
-    let pth = format!("../static/{}", resource);
+    let resources = plugin_manager.static_resources();
+    let pth = format!("/static/{}", resource);
     let ext = get_extension(resource.as_str()).replace(".", "");
 
     let content = match resources.get(pth.as_str()) {
         Some(data) => data,
         None => {
             let html =
-                String::from_utf8_lossy(resources.get("../static/index.html").unwrap()).to_string();
-            return get_error_response(cfg.uri_prefix.clone(), html, Status::NotFound);
+                String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).to_string();
+
+            return get_error_response(
+                handlebars.inner(),
+                cfg.uri_prefix.clone(),
+                html,
+                Status::NotFound,
+            );
         }
     };
     let content_type = ContentType::from_extension(ext.as_str()).unwrap();
@@ -563,7 +580,12 @@ fn get_static<'r>(
 
 #[get("/")]
 fn index(cfg: State<PastebinConfig>) -> Redirect {
-    let url = String::from(Path::new(cfg.uri_prefix.as_str()).join("new").to_str().unwrap());
+    let url = String::from(
+        Path::new(cfg.uri_prefix.as_str())
+            .join("new")
+            .to_str()
+            .unwrap(),
+    );
 
     Redirect::to(url)
 }
@@ -610,7 +632,7 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
         let mut alphabet: Vec<char> = vec![];
 
         // match all printable ASCII characters
-        for i in 0x20 .. 0x7e as u8 {
+        for i in 0x20..0x7e as u8 {
             let c = i as char;
 
             if re.is_match(c.encode_utf8(&mut tmp)) {
@@ -629,17 +651,26 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
                 if sub_elem.trim().to_lowercase() == "never" {
                     all.insert(sub_elem.trim().to_string(), 0);
                 } else {
-                    all.insert(sub_elem.trim().to_string(), parse_duration(sub_elem).unwrap().as_secs());
+                    all.insert(
+                        sub_elem.trim().to_string(),
+                        parse_duration(sub_elem).unwrap().as_secs(),
+                    );
                 }
-	     }
-	}
+            }
+        }
 
         all
     };
 
     let ui_expiry_default: String = ui_expiry_times
         .iter()
-        .filter_map(|(key, &val)| if val == pastebin_config.ttl { Some(key.clone()) } else { None })
+        .filter_map(|(key, &val)| {
+            if val == pastebin_config.ttl {
+                Some(key.clone())
+            } else {
+                None
+            }
+        })
         .collect();
 
     if ui_expiry_default.is_empty() {
@@ -654,26 +685,35 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
         panic!("selected slug alphabet is empty, please check if slug_charset is a valid regex");
     }
 
+    let plugins: Vec<Box<dyn Plugin>> = pastebin_config
+        .plugins
+        .iter()
+        .map(|t| match t.as_str() {
+            "prism" => Box::new(plugins::prism::new()),
+            "mermaid" => Box::new(plugins::mermaid::new()),
+            _ => panic!("unknown plugin provided"),
+        })
+        .map(|x| x as Box<dyn plugins::plugin::Plugin>)
+        .collect();
+
+    let plugin_manager = plugins::new(plugins);
     let uri_prefix = pastebin_config.uri_prefix.clone();
-    let resources = load_static_resources!(
-        "../static/index.html",
-        "../static/custom.js",
-        "../static/custom.css",
-        "../static/prism.js",
-        "../static/prism.css",
-        "../static/favicon.ico"
-    );
 
     // run rocket
     rocket::custom(rocket_config)
         .manage(pastebin_config)
         .manage(db)
-        .manage(resources)
+        .manage(formatter::new())
+        .manage(plugin_manager)
         .manage(alphabet)
         .manage(ui_expiry_times)
         .manage(ui_expiry_default)
         .mount(
-            if uri_prefix == "" { "/" } else { uri_prefix.as_str() },
+            if uri_prefix == "" {
+                "/"
+            } else {
+                uri_prefix.as_str()
+            },
             routes![index, create, remove, get, get_new, get_raw, get_binary, get_static],
         )
 }
