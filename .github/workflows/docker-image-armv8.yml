@@ -11,5 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    
+    - name: Fetch additional packages
+      run: sudo apt-get update && sudo apt-get install qemu-user-static qemu binfmt-support
+
     - name: Build the Docker image
       run: docker build . --file Dockerfile.armv8 --tag mkaczanowski/pastebin:armv8
