@@ -66,11 +66,17 @@ cargo build --release
 cargo run
 ```
 ### Docker
+x86 image:
 ```
 docker pull mkaczanowski/pastebin:latest
 docker run --network host mkaczanowski/pastebin --address localhost --port 8000
 ```
 
+ARM images:
+```
+docker pull mkaczanowski/pastebin:armv7
+docker pull mkaczanowski/pastebin:armv8
+```
 ### Client
 ```
 alias pastebin="curl -w '\n' -q -L --data-binary @- -o - http://localhost:8000/"
