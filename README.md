@@ -9,7 +9,7 @@
 [docker-hub]: https://hub.docker.com/r/mkaczanowski/pastebin
 [docker-cloud-build-status]: https://img.shields.io/docker/cloud/build/mkaczanowski/pastebin
 [docker-pulls]: https://img.shields.io/docker/pulls/mkaczanowski/pastebin
-[docker-size]: https://img.shields.io/docker/image-size/mkaczanowski/pastebin
+[docker-size]: https://img.shields.io/docker/image-size/mkaczanowski/pastebin/latest
 [github-workflow]: https://github.com/mkaczanowski/pastebin/workflows/Test%20and%20Build/badge.svg
 
 # Pastebin
@@ -111,6 +111,9 @@ server {
     access_log /var/log/nginx/access.log;
 }
 ```
+
+## REST API
+See [REST API doc](https://github.com/mkaczanowski/pastebin/blob/master/API.md)
 
 ## Benchmark
 I used [k6.io](https://k6.io/) for benchmarking the read-by-id HTTP endoint. Details:
