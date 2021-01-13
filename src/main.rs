@@ -180,6 +180,16 @@ speculate! {
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.body_bytes(), Some(contents));
     }
+
+    it "can cope with invalid unicode data" {
+        let invalid_data = unsafe {
+            String::from_utf8_unchecked(b"Hello \xF0\x90\x80World".to_vec())
+        };
+        let id = insert_data(&client, &invalid_data, "/");
+    
+        let response = get_data(&client, id);
+        assert_eq!(response.status(), Status::Ok);
+    }
 }
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -414,7 +424,7 @@ fn get<'r>(
 
     let mut map = json!({
         "is_created": "true",
-        "pastebin_code": std::str::from_utf8(entry.data().unwrap()).unwrap(),
+        "pastebin_code": String::from_utf8_lossy(entry.data().unwrap()),
         "pastebin_id": id,
         "pastebin_language": selected_lang,
         "version": VERSION,
