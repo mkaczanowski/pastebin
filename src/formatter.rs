@@ -1,9 +1,8 @@
-use handlebars::{Handlebars, JsonRender, no_escape};
+use handlebars::{Handlebars, JsonRender};
 
 pub fn new<'r>() -> Handlebars<'r> {
     let mut handlebars = Handlebars::new();
     handlebars.register_helper("format_url", Box::new(format_helper));
-    handlebars.register_escape_fn(no_escape);
 
     handlebars
 }
