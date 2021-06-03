@@ -186,7 +186,7 @@ speculate! {
             String::from_utf8_unchecked(b"Hello \xF0\x90\x80World".to_vec())
         };
         let id = insert_data(&client, &invalid_data, "/");
-    
+
         let response = get_data(&client, id);
         assert_eq!(response.status(), Status::Ok);
     }
@@ -287,6 +287,9 @@ struct PastebinConfig {
         default_value = "5 minutes, 10 minutes, 1 hour, 1 day, 1 week, 1 month, 1 year, Never"
     )]
     ui_expiry_times: Vec<String>,
+
+    #[structopt(long = "ui-line-numbers", help = "Display line numbers")]
+    ui_line_numbers: bool,
 
     #[structopt(
         long = "plugins",
@@ -422,11 +425,18 @@ fn get<'r>(
         .unwrap_or_else(|| entry.lang().unwrap().to_string())
         .to_lowercase();
 
+    let mut pastebin_cls = Vec::new();
+    if cfg.ui_line_numbers {
+        pastebin_cls.push("line-numbers".to_string());
+    }
+
+    pastebin_cls.push(format!("language-{}", selected_lang));
+
     let mut map = json!({
         "is_created": "true",
         "pastebin_code": String::from_utf8_lossy(entry.data().unwrap()),
         "pastebin_id": id,
-        "pastebin_language": selected_lang,
+        "pastebin_cls": pastebin_cls.join(" "),
         "version": VERSION,
         "uri_prefix": cfg.uri_prefix,
         "ui_expiry_times": ui_expiry_times.inner(),
