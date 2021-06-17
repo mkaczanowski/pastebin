@@ -1,0 +1,12 @@
+version: "3.7"
+
+services:
+  pastebin:
+    image: mkaczanowski/pastebin:latest
+    container_name: pastebin
+    volumes:
+      - $DOCKERDIR/pastebin:/var/lib/pastebin
+    restart: unless-stopped
+    command: --address 0.0.0.0 --port 8081 --uri="https://paste.yourdomain.com" --db=/var/lib/pastebin/
+    ports:
+      - "8081"
