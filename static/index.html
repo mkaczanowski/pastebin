@@ -304,7 +304,7 @@
         var uri_prefix="{{uri_prefix}}";
 
         function init_plugins() {
-            {{#each js_init as |fn|}}{{fn}}
+            {{#each js_init as |fn|}}{{{fn}}}
             {{/each}}
         }
 
