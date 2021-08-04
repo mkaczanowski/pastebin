@@ -69,7 +69,7 @@ cargo run
 x86 image:
 ```
 docker pull mkaczanowski/pastebin:latest
-docker run --network host mkaczanowski/pastebin --address localhost --port 8000
+docker run --init --network host mkaczanowski/pastebin --address localhost --port 8000
 ```
 
 ARM images:
