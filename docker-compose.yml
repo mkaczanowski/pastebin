@@ -1,0 +1,60 @@
+version: "3.7"
+
+services:
+  pastebin:
+    image: mkaczanowski/pastebin:latest
+    container_name: pastebin
+    volumes:
+      - $DOCKERDIR/pastebin:/var/lib/pastebin
+    restart: unless-stopped
+    command: --address 0.0.0.0 --port 8081 --uri ${URI} --db=/var/lib/pastebin/
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./db:/var/lib/pastebin/
+
+  nginx:
+    image: "nginx"
+    ports:
+      - "80:80"
+    links:
+      - pastebin:pastebin
+    command: |
+      bash -c "bash -s <<'EOF'
+        cat > /etc/nginx/nginx.conf <<'EON'
+          daemon off;
+          error_log /dev/stderr info;
+
+          events {
+            worker_connections 768;
+          }
+            
+          http {
+            map $$sent_http_content_type $$expires {
+                default                    off;
+                text/css                   30d;
+                application/javascript     30d;
+                image/x-icon               30d;
+            }
+
+            server {
+                listen       80; 
+                server_name  0.0.0.0; 
+                
+                gzip on;
+                gzip_types text/plain application/xml text/css application/javascript;
+            
+                expires $$expires;
+                location / {
+                    proxy_pass     http://pastebin:8081;
+                    
+                }
+            
+                access_log /dev/stdout;
+            }
+          }
+      EON
+      set -eux
+      cat /etc/nginx/nginx.conf
+      nginx 
+      EOF"

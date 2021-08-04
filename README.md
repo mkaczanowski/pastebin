@@ -77,6 +77,12 @@ ARM images:
 docker pull mkaczanowski/pastebin:armv7
 docker pull mkaczanowski/pastebin:armv8
 ```
+
+Compose setup:
+```
+URI="http://localhost" docker-compose up
+curl -L "http://localhost"
+```
 ### Client
 ```
 alias pastebin="curl -w '\n' -q -L --data-binary @- -o - http://localhost:8000/"
