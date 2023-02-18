@@ -58,6 +58,11 @@ $(document).ready(function() {
 
     $("#remove-btn").on("click", function(event) {
         event.preventDefault();
+        $('#deletion-modal').modal('show');
+    });
+
+    $("#deletion-confirm-btn").on("click", function(event) {
+        event.preventDefault();
 
         $.ajax({
             url: window.location.pathname,
