@@ -26,7 +26,6 @@ use plugins::plugin::{Plugin, PluginManager};
 mod api_generated;
 use api_generated::api::get_root_as_entry;
 
-use std::collections::BTreeMap;
 use std::io;
 use std::io::Cursor;
 use std::path::Path;
@@ -385,7 +384,7 @@ fn get<'r>(
     state: State<'r, DB>,
     handlebars: State<'r, Handlebars>,
     plugin_manager: State<PluginManager>,
-    ui_expiry_times: State<'r, BTreeMap<String, u64>>,
+    ui_expiry_times: State<'r, Vec<(String, u64)>>,
     ui_expiry_default: State<'r, String>,
     cfg: State<PastebinConfig>,
 ) -> Response<'r> {
@@ -478,7 +477,7 @@ fn get_new<'r>(
     handlebars: State<Handlebars>,
     cfg: State<PastebinConfig>,
     plugin_manager: State<PluginManager>,
-    ui_expiry_times: State<'r, BTreeMap<String, u64>>,
+    ui_expiry_times: State<'r, Vec<(String, u64)>>,
     ui_expiry_default: State<'r, String>,
     id: Option<String>,
     level: Option<String>,
@@ -665,16 +664,16 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
 
     // setup drop down expiry menu (for instance 1m, 20m, 1 year, never)
     let ui_expiry_times = {
-        let mut all = BTreeMap::new();
+        let mut all = vec![];
         for item in pastebin_config.ui_expiry_times.clone() {
             for sub_elem in item.split(',') {
                 if sub_elem.trim().to_lowercase() == "never" {
-                    all.insert(sub_elem.trim().to_string(), 0);
+                    all.push((sub_elem.trim().to_string(), 0));
                 } else {
-                    all.insert(
+                    all.push((
                         sub_elem.trim().to_string(),
-                        parse_duration(sub_elem).unwrap().as_secs(),
-                    );
+                        parse_duration(sub_elem).unwrap().as_secs()
+                    ));
                 }
             }
         }
@@ -684,9 +683,9 @@ fn rocket(pastebin_config: PastebinConfig) -> rocket::Rocket {
 
     let ui_expiry_default: String = ui_expiry_times
         .iter()
-        .filter_map(|(key, &val)| {
-            if val == pastebin_config.ttl {
-                Some(key.clone())
+        .filter_map(|(name, val)| {
+            if *val == pastebin_config.ttl {
+                Some(name.clone())
             } else {
                 None
             }

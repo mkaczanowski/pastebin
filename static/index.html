@@ -41,8 +41,8 @@
                     <li class="nav-item dropdown">
                         <a id="expiry-dropdown-btn" class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Expires: {{ui_expiry_default}}</a>
                         <div class="dropdown-menu" id="expiry-dropdown">
-                            {{#each ui_expiry_times as |value key|}}
-                            <a class="dropdown-item" href="{{value}}">{{key}}</a>
+                            {{#each ui_expiry_times}}
+                            <a class="dropdown-item" href="{{1}}">{{0}}</a>
                             {{/each}}
                         </div>
                     </li>
