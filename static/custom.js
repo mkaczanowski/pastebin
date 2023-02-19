@@ -134,6 +134,15 @@ $(document).ready(function() {
         $('#burn-dropdown-btn').text("Burn: " + this.innerHTML);
     });
 
+    $('#password-modal').on('shown.bs.modal', function () {
+        $('#modal-password').trigger('focus');
+    })
+
+    $('#password-modal form').submit(function(event) {
+        event.preventDefault();
+        $('#decrypt-btn').click();
+    });
+
     $('#decrypt-btn').click(function(event) {
         var pass = $("#modal-password").val();
         var data = "";
