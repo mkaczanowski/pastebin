@@ -550,7 +550,7 @@ fn get_raw(id: String, state: State<DB>) -> Response {
 
     Response::build()
         .status(Status::Ok)
-        .header(ContentType::Plain)
+        .header(ContentType::HTML)
         .sized_body(Cursor::new(data))
         .finalize()
 }
