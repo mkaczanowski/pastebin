@@ -10,3 +10,5 @@ Cargo.lock
 **/*.rs.bk
 
 pastebin.db
+
+.env
