@@ -319,7 +319,6 @@ struct PastebinConfig {
         long = "ui-line-numbers",
         env = "PASTEBIN_UI_LINE_NUMBERS",
         help = "Display line numbers"
-        default_value = "true"
     )]
     ui_line_numbers: bool,
 
