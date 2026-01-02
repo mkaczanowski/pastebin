@@ -13,14 +13,17 @@
 [github-workflow]: https://github.com/mkaczanowski/pastebin/workflows/Test%20and%20Build/badge.svg
 
 # Pastebin
+
 Simple, fast, standalone pastebin service.
 
 ## Why?
+
 Whenever you need to share a code snippet, diff, logs, or a secret with another human being, the Pastebin service is invaluable. However, using public services such as [pastebin.com](https://pastebin.com), [privnote.com](https://privnote.com), etc. should be avoided when you're sharing data that should be available only for a selected audience (i.e., your company, private network). Instead of trusting external providers, you could host your own Pastebin service and take ownership of all your data!
 
 **There are numerous [Pastebin implementations](https://github.com/awesome-selfhosted/awesome-selfhosted#pastebins) out there, why would you implement another one?**
 
 While the other implementations are great, I couldn't find one that would satisfy my requirements:
+
 * no dependencies - one binary is all I want, no python libs, ruby runtime magic, no javascript or external databases to setup
 * storage - fast, lightweight, self-hosted key-value storage able to hold a lot of data.
 * speed - it must be fast. Once deployed in a mid-sized company you can expect high(er) traffic with low latency expectations from users
@@ -28,15 +31,17 @@ While the other implementations are great, I couldn't find one that would satisf
 * cheap - low-cost service that would not steal too much CPU time, thus adding up to your bill
 * CLI + GUI - it must be easy to interface from both ends (but still, no deps!)
 * other features:
-    * on-demand encryption
-    * syntax highlighting
-    * destroy after reading
-    * destroy after expiration date
+  * on-demand encryption
+  * syntax highlighting
+  * destroy after reading
+  * destroy after expiration date
 
 This Pastebin implementation satisfies all of the above requirements!
 
 ## Implementation
+
 This is a rust version of Pastebin service with [rocksdb](https://rocksdb.org/) database as storage. In addition to previously mentioned features it's worth to mention:
+
 * all-in-one binary - all the data, including css/javascript files are compiled into the binary. This way you don't need to worry about external dependencies, it's all within. (see: [std::include_bytes](https://doc.rust-lang.org/std/macro.include_bytes.html))
 * [REST endpoint](https://rocket.rs/) - you can add/delete pastes via standard HTTP client (ie. curl)
 * [RocksDB compaction filter](https://github.com/facebook/rocksdb/wiki/Compaction-Filter) - the expired pastes will be automatically removed by custom compaction filter
@@ -45,46 +50,57 @@ This is a rust version of Pastebin service with [rocksdb](https://rocksdb.org/) 
 * Encryption - password-protected pastes are AES encrypted/decprypted in the browser via [CryptoJS](https://code.google.com/archive/p/crypto-js/)
 
 ### Plugins
+
 The default configuration enables only one plugin, this is syntax highlighting through `prism.js`. This should be enough for p90 of the users but if you need extra features you might want to use the plugin system (`src/plugins`).
 
 To enable additional plugins, pass:
-```
+
+```shell
 --plugins prism <custom_plugin_name>
 ```
 
 Currently supported:
+
 * [prism.js](https://prismjs.com/)
 * [mermaid.js](https://github.com/mermaid-js/mermaid)
 
-
 ## Usage
+
 Pastebin builds only with `rust-nightly` version and requires `llvm` compiler (rocksdb deps). To skip the build process, you can use the docker image.
 
 ### Cargo
-```
+
+```shell
 cargo build --release
 cargo run
 ```
+
 ### Docker
+
 x86 image:
-```
+
+```shell
 docker pull mkaczanowski/pastebin:latest
 docker run --init --network host mkaczanowski/pastebin --address localhost --port 8000
 ```
 
 ARM images:
-```
+
+```shell
 docker pull mkaczanowski/pastebin:armv7
 docker pull mkaczanowski/pastebin:armv8
 ```
 
 Compose setup:
-```
+
+```shell
 URI="http://localhost" docker-compose up
 curl -L "http://localhost"
 ```
+
 ### Client
-```
+
+```shell
 alias pastebin="curl -w '\n' -q -L --data-binary @- -o - http://localhost:8000/"
 
 echo "hello World" | pastebin
@@ -92,8 +108,10 @@ http://localhost:8000/T9kGrI5aNkI4Z-PelmQ5U
 ```
 
 ## Nginx (optional)
+
 The Pastebin service serves `/static` files from memory. To lower down the load on the service you might want to consider setting up nginx with caching and compression enabled, as shown here:
-```
+
+```nginx
 map $sent_http_content_type $expires {
     default                    off;
     text/css                   30d;
@@ -119,17 +137,21 @@ server {
 ```
 
 ## REST API
+
 See [REST API doc](https://github.com/mkaczanowski/pastebin/blob/master/API.md)
 
 ## Benchmark
-I used [k6.io](https://k6.io/) for benchmarking the read-by-id HTTP endoint. Details:
+
+I used [k6.io](https://k6.io/) for benchmarking the read-by-id HTTP endpoint. Details:
+
 * CPU: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz (4 CPUs, 8 threads = 16 rocket workers)
 * Mem: 24 GiB
 * Storage: NVMe SSD Controller SM981/PM981/PM983
 * both client (k6) and server (pastebin) running on the same machine
 
 ### Setup
-```
+
+```shell
 $ cargo run --release
 
 $ echo "Hello world" | curl -q -L -d @- -o - http://localhost:8000/
@@ -147,7 +169,8 @@ $ docker pull loadimpact/k6
 ```
 
 ### Test 1: 5 concurrent clients, duration: 15s
-```
+
+```shell
 $ docker run --network=host -i loadimpact/k6 run --vus 5 -d 15s - <script.js
 
 data_received..............: 206 MB 14 MB/s
@@ -167,7 +190,8 @@ vus_max....................: 5      min=5 max=5
 ```
 
 ### Test 2: Every 15s double concurrent clients
-```
+
+```shell
 docker run --network=host -i loadimpact/k6 run --vus 2 --stage 15s:4,15s:8,15s:16,15s:32 - <script.js
 
 data_received..............: 654 MB 11 MB/s
@@ -187,6 +211,7 @@ vus_max....................: 32     min=32 max=32
 ```
 
 ### Interpretation
+
 At first glance, the performance is pretty good. In the simplest scenario (5 concurrent clients), we can get up to `1000 rps` with the p95 response time at `6.59 ms` (`14986` total requests made).
 
 As we add more concurrent clients, the rps drops a bit (`794 rps`) but still provides a good timing (p95 `38.67ms`) with high throughput at `47699` request made in 15s window (3x compared to Test 1).
@@ -194,4 +219,5 @@ As we add more concurrent clients, the rps drops a bit (`794 rps`) but still pro
 The CPU utilization is at 100% on every core available and the memory usage is stable at `~13 Mb RSS`.
 
 ## Demo
+
 [![Pastebin service demo](https://i.imgur.com/Fv19H71.png)](https://www.youtube.com/watch?v=BG7f61H7C4I "Pastebin service demo")

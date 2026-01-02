@@ -1,17 +1,40 @@
-version: "3.7"
-
 services:
   pastebin:
     image: mkaczanowski/pastebin:latest
     container_name: pastebin
     volumes:
       - $DOCKERDIR/pastebin:/var/lib/pastebin
+    # Following Variables are optional, default values are shown. You can pass command line arguments directly as well, but not both.
+    # environment:
+    #   - PASTEBIN_ADDRESS=localhost # IP address or host to listen on
+    #   - PASTEBIN_PORT=8000 # Port to listen on
+    #   - PASTEBIN_ENVIRONMENT=production # Rocket server environment
+    #   - PASTEBIN_WORKERS=0 # Number of concurrent thread workers
+    #   - PASTEBIN_KEEP_ALIVE=5 # Keep-alive timeout in seconds
+    #   - PASTEBIN_LOG_LEVEL=normal # Max log level
+    #   - PASTEBIN_TTL=0 # Time to live for entries, by default '0# kept forever
+    #   - PASTEBIN_DB_PATH=./pastebin.db # Database file path
+    #   - PASTEBIN_TLS_CERTS_PATH="" # Path to certificate chain in PEM format
+    #   - PASTEBIN_TLS_KEY="" # Path to private key for tls-certs in PEM format
+    #   - PASTEBIN_URI="" # Override default URI
+    #   - PASTEBIN_URI_PREFIX="" # Prefix appended to the URI (ie. '/pastebin')
+    #   - PASTEBIN_SLUG_CHARSET="[A-Za-z0-9_-]" # Character set (expressed as rust compatible regex) to use for generating the URL slug
+    #   - PASTEBIN_SLUG_LENGTH=21 # Length of URL slug
+    #   - PASTEBIN_UI_EXPIRY_TIMES="5 minutes, 10 minutes, 1 hour, 1 day, 1 week, 1 month, 1 year, Never" # List of paste expiry times rendered in the UI dropdown selector
+    #   - PASTEBIN_UI_LINE_NUMBERS=true # Display line numbers
+    #   - PASTEBIN_PLUGINS=prism # Enable additional functionalities (ie. prism, mermaid)
     restart: unless-stopped
-    command: --address 0.0.0.0 --port 8081 --uri ${URI} --db=/var/lib/pastebin/
-    ports:
-      - "8081:8081"
-    volumes:
-      - ./db:/var/lib/pastebin/
+    # You can also pass command line arguments directly
+    command: --address 0.0.0.0 --uri ${URI} --db=/var/lib/pastebin/
+    # Uncomment below to expose pastebin service directly
+    # ports:
+    #   - 8000:8000
+    healthcheck:
+      test: sh -c 'ls -l /proc/*/exe | grep pastebin'
+      interval: 5m00s
+      timeout: 10s
+      retries: 2
+      start_period: 30s
 
   nginx:
     image: "nginx"
@@ -46,7 +69,7 @@ services:
             
                 expires $$expires;
                 location / {
-                    proxy_pass     http://pastebin:8081;
+                    proxy_pass     http://pastebin:8000;
                     
                 }
             
