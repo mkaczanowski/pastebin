@@ -201,6 +201,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 struct PastebinConfig {
     #[structopt(
         long = "address",
+        env = "PASTEBIN_ADDRESS",
         help = "IP address or host to listen on",
         default_value = "localhost"
     )]
@@ -208,6 +209,7 @@ struct PastebinConfig {
 
     #[structopt(
         long = "port",
+        env = "PASTEBIN_PORT",
         help = "Port number to listen on",
         default_value = "8000"
     )]
@@ -215,6 +217,7 @@ struct PastebinConfig {
 
     #[structopt(
         long = "environment",
+        env = "PASTEBIN_ENVIRONMENT",
         help = "Rocket server environment",
         default_value = "production"
     )]
@@ -222,6 +225,7 @@ struct PastebinConfig {
 
     #[structopt(
         long = "workers",
+        env = "PASTEBIN_WORKERS",
         help = "Number of concurrent thread workers",
         default_value = "0"
     )]
@@ -229,42 +233,60 @@ struct PastebinConfig {
 
     #[structopt(
         long = "keep-alive",
+        env = "PASTEBIN_KEEP_ALIVE",
         help = "Keep-alive timeout in seconds",
         default_value = "5"
     )]
     keep_alive: u32,
 
-    #[structopt(long = "log", help = "Max log level", default_value = "normal")]
+    #[structopt(
+        long = "log",
+        env = "PASTEBIN_LOG_LEVEL",
+        help = "Max log level",
+        default_value = "normal"
+    )]
     log: rocket::config::LoggingLevel,
 
     #[structopt(
         long = "ttl",
-        help = "Time to live for entries, by default kept forever",
+        env = "PASTEBIN_TTL",
+        help = "Time to live for entries, by default '0' kept forever",
         default_value = "0"
     )]
     ttl: u64,
 
     #[structopt(
         long = "db",
+        env = "PASTEBIN_DB_PATH",
         help = "Database file path",
         default_value = "./pastebin.db"
     )]
     db_path: String,
 
-    #[structopt(long = "tls-certs", help = "Path to certificate chain in PEM format")]
+    #[structopt(
+        long = "tls-certs",
+        env = "PASTEBIN_TLS_CERTS_PATH",
+        help = "Path to certificate chain in PEM format"
+    )]
     tls_certs: Option<String>,
 
     #[structopt(
         long = "tls-key",
+        env = "PASTEBIN_TLS_KEY",
         help = "Path to private key for tls-certs in PEM format"
     )]
     tls_key: Option<String>,
 
-    #[structopt(long = "uri", help = "Override default URI")]
+    #[structopt(
+        long = "uri",
+        env = "PASTEBIN_URI",
+        help = "Override default URI"
+    )]
     uri: Option<String>,
 
     #[structopt(
         long = "uri-prefix",
+        env = "PASTEBIN_URI_PREFIX",
         help = "Prefix appended to the URI (ie. '/pastebin')",
         default_value = ""
     )]
@@ -272,26 +294,38 @@ struct PastebinConfig {
 
     #[structopt(
         long = "slug-charset",
+        env = "PASTEBIN_SLUG_CHARSET",
         help = "Character set (expressed as rust compatible regex) to use for generating the URL slug",
         default_value = "[A-Za-z0-9_-]"
     )]
     slug_charset: String,
 
-    #[structopt(long = "slug-len", help = "Length of URL slug", default_value = "21")]
+    #[structopt(
+        long = "slug-len",
+        env = "PASTEBIN_SLUG_LENGTH",
+        help = "Length of URL slug",
+        default_value = "21")]
     slug_len: usize,
 
     #[structopt(
         long = "ui-expiry-times",
-        help = "List of paste expiry times redered in the UI dropdown selector",
+        env = "PASTEBIN_UI_EXPIRY_TIMES",
+        help = "List of paste expiry times rendered in the UI dropdown selector",
         default_value = "5 minutes, 10 minutes, 1 hour, 1 day, 1 week, 1 month, 1 year, Never"
     )]
     ui_expiry_times: Vec<String>,
 
-    #[structopt(long = "ui-line-numbers", help = "Display line numbers")]
+    #[structopt(
+        long = "ui-line-numbers",
+        env = "PASTEBIN_UI_LINE_NUMBERS",
+        help = "Display line numbers"
+        default_value = "true"
+    )]
     ui_line_numbers: bool,
 
     #[structopt(
         long = "plugins",
+        env = "PASTEBIN_PLUGINS",
         help = "Enable additional functionalities (ie. prism, mermaid)",
         default_value = "prism"
     )]
