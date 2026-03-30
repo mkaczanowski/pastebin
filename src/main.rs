@@ -12,7 +12,7 @@ use std::str::FromStr;
 use rocket::config::{Config, LogLevel};
 use rocket::data::{Data, ToByteUnit};
 use rocket::http::{ContentType, Status};
-use rocket::request::Request;
+use rocket::request::{FromRequest, Outcome, Request};
 use rocket::response::{self, Responder, Response};
 use rocket::State;
 
@@ -292,28 +292,54 @@ struct PastebinConfig {
     plugins: Vec<String>,
 }
 
-fn get_url(cfg: &PastebinConfig) -> String {
-    let port = if vec![443, 80].contains(&cfg.port) {
-        String::from("")
+/// Carries the effective public host+scheme derived from reverse-proxy headers.
+struct RequestHost {
+    scheme: String,
+    host: String,
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for RequestHost {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let host = request
+            .headers()
+            .get_one("X-Forwarded-Host")
+            .or_else(|| request.headers().get_one("Host"))
+            .map(|s| s.to_string());
+
+        let scheme = request
+            .headers()
+            .get_one("X-Forwarded-Proto")
+            .map(|s| s.to_string());
+
+        match host {
+            Some(host) => Outcome::Success(RequestHost {
+                scheme: scheme.unwrap_or_else(|| String::from("http")),
+                host,
+            }),
+            None => Outcome::Forward(Status::BadRequest),
+        }
+    }
+}
+
+fn get_url(cfg: &PastebinConfig, req_host: Option<RequestHost>) -> String {
+    if let Some(uri) = &cfg.uri {
+        return uri.clone();
+    }
+
+    if let Some(rh) = req_host {
+        return format!("{}://{}", rh.scheme, rh.host);
+    }
+
+    let port = if vec![443u16, 80].contains(&cfg.port) {
+        String::new()
     } else {
         format!(":{}", cfg.port)
     };
-    let scheme = if cfg.tls_certs.is_some() {
-        "https"
-    } else {
-        "http"
-    };
-
-    if cfg.uri.is_some() {
-        cfg.uri.clone().unwrap()
-    } else {
-        format!(
-            "{scheme}://{address}{port}",
-            scheme = scheme,
-            port = port,
-            address = cfg.address,
-        )
-    }
+    let scheme = if cfg.tls_certs.is_some() { "https" } else { "http" };
+    format!("{}://{}{}", scheme, cfg.address, port)
 }
 
 fn get_error_response<'r>(
@@ -340,6 +366,7 @@ fn get_error_response<'r>(
 
 #[post("/?<lang>&<ttl>&<burn>&<encrypted>", data = "<paste>")]
 async fn create(
+    req_host: Option<RequestHost>,
     paste: Data<'_>,
     state: &State<DB>,
     cfg: &State<PastebinConfig>,
@@ -351,7 +378,7 @@ async fn create(
 ) -> Result<String, io::Error> {
     let slug_len = cfg.slug_len;
     let id = nanoid!(slug_len, alphabet.inner());
-    let url = format!("{url}/{id}", url = get_url(cfg), id = id);
+    let url = format!("{url}/{id}", url = get_url(cfg, req_host), id = id);
 
     let bytes = paste
         .open(8.mebibytes())
