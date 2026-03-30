@@ -1,67 +1,67 @@
 use std::collections::HashMap;
 
-pub trait Plugin<'r>: Sync + Send {
-    fn css_imports(&self) -> &Vec<&'r str>;
-    fn js_imports(&self) -> &Vec<&'r str>;
-    fn js_init(&self) -> Option<&'r str>;
-    fn static_resources(&self) -> &HashMap<&'r str, &'r [u8]>;
+pub trait Plugin: Sync + Send {
+    fn css_imports(&self) -> &Vec<&'static str>;
+    fn js_imports(&self) -> &Vec<&'static str>;
+    fn js_init(&self) -> Option<&'static str>;
+    fn static_resources(&self) -> &HashMap<&'static str, &'static [u8]>;
 }
 
 #[derive(Debug)]
-pub struct PastebinPlugin<'r> {
-    pub css_imports: Vec<&'r str>,
-    pub js_imports: Vec<&'r str>,
-    pub js_init: Option<&'r str>,
-    pub static_resources: HashMap<&'r str, &'r [u8]>,
+pub struct PastebinPlugin {
+    pub css_imports: Vec<&'static str>,
+    pub js_imports: Vec<&'static str>,
+    pub js_init: Option<&'static str>,
+    pub static_resources: HashMap<&'static str, &'static [u8]>,
 }
 
-impl<'r> Plugin<'r> for PastebinPlugin<'r> {
-    fn css_imports(&self) -> &Vec<&'r str> {
+impl Plugin for PastebinPlugin {
+    fn css_imports(&self) -> &Vec<&'static str> {
         &self.css_imports
     }
 
-    fn js_imports(&self) -> &Vec<&'r str> {
+    fn js_imports(&self) -> &Vec<&'static str> {
         &self.js_imports
     }
 
-    fn js_init(&self) -> Option<&'r str> {
+    fn js_init(&self) -> Option<&'static str> {
         self.js_init
     }
 
-    fn static_resources(&self) -> &HashMap<&'r str, &'r [u8]> {
+    fn static_resources(&self) -> &HashMap<&'static str, &'static [u8]> {
         &self.static_resources
     }
 }
 
-pub struct PluginManagerBuilder<'r> {
-    manager: PluginManager<'r>,
+pub struct PluginManagerBuilder {
+    manager: PluginManager,
 }
 
-impl<'r> PluginManagerBuilder<'r> {
-    pub fn plugins(&mut self, plugins: Vec<Box<dyn Plugin<'r>>>) -> &mut PluginManagerBuilder<'r> {
+impl PluginManagerBuilder {
+    pub fn plugins(&mut self, plugins: Vec<Box<dyn Plugin>>) -> &mut PluginManagerBuilder {
         self.manager.set_plugins(plugins);
         self
     }
 
-    pub fn css_imports(&mut self, css_imports: Vec<&'r str>) -> &mut PluginManagerBuilder<'r> {
+    pub fn css_imports(&mut self, css_imports: Vec<&'static str>) -> &mut PluginManagerBuilder {
         self.manager.set_css_imports(css_imports);
         self
     }
 
-    pub fn js_imports(&mut self, js_imports: Vec<&'r str>) -> &mut PluginManagerBuilder<'r> {
+    pub fn js_imports(&mut self, js_imports: Vec<&'static str>) -> &mut PluginManagerBuilder {
         self.manager.set_js_imports(js_imports);
         self
     }
 
     pub fn static_resources(
         &mut self,
-        static_resources: HashMap<&'r str, &'r [u8]>,
-    ) -> &mut PluginManagerBuilder<'r> {
+        static_resources: HashMap<&'static str, &'static [u8]>,
+    ) -> &mut PluginManagerBuilder {
         self.manager.set_static_resources(static_resources);
         self
     }
 
-    pub fn finalize(&mut self) -> PluginManager<'r> {
+    pub fn finalize(&mut self) -> PluginManager {
         self.manager.build_css_imports();
         self.manager.build_js_imports();
         self.manager.build_js_init();
@@ -71,20 +71,20 @@ impl<'r> PluginManagerBuilder<'r> {
     }
 }
 
-pub struct PluginManager<'r> {
+pub struct PluginManager {
     // plugins are used to build up the static members of the struct, for instance:
     //   * js_imports (ie. "{{uri_prefix}}/static/prism.js")
     //   * static_resources (files under static/ directory - compiled with the binary)
-    plugins: Vec<Box<dyn Plugin<'r>>>,
+    plugins: Vec<Box<dyn Plugin>>,
 
-    css_imports: Vec<&'r str>,
-    js_imports: Vec<&'r str>,
-    js_init: Vec<&'r str>,
-    static_resources: HashMap<&'r str, &'r [u8]>,
+    css_imports: Vec<&'static str>,
+    js_imports: Vec<&'static str>,
+    js_init: Vec<&'static str>,
+    static_resources: HashMap<&'static str, &'static [u8]>,
 }
 
-impl<'r> PluginManager<'r> {
-    pub fn new() -> PluginManager<'r> {
+impl PluginManager {
+    pub fn new() -> PluginManager {
         PluginManager {
             plugins: vec![],
             css_imports: vec![],
@@ -94,45 +94,45 @@ impl<'r> PluginManager<'r> {
         }
     }
 
-    pub fn build() -> PluginManagerBuilder<'r> {
+    pub fn build() -> PluginManagerBuilder {
         PluginManagerBuilder {
             manager: PluginManager::new(),
         }
     }
 
-    pub fn set_plugins(&mut self, plugins: Vec<Box<dyn Plugin<'r>>>) {
+    pub fn set_plugins(&mut self, plugins: Vec<Box<dyn Plugin>>) {
         self.plugins = plugins;
     }
 
-    pub fn set_css_imports(&mut self, css_imports: Vec<&'r str>) {
+    pub fn set_css_imports(&mut self, css_imports: Vec<&'static str>) {
         self.css_imports = css_imports;
     }
 
-    pub fn css_imports(&self) -> Vec<&'r str> {
+    pub fn css_imports(&self) -> Vec<&'static str> {
         self.css_imports.clone()
     }
 
-    pub fn set_js_imports(&mut self, js_imports: Vec<&'r str>) {
+    pub fn set_js_imports(&mut self, js_imports: Vec<&'static str>) {
         self.js_imports = js_imports;
     }
 
-    pub fn js_imports(&self) -> Vec<&'r str> {
+    pub fn js_imports(&self) -> Vec<&'static str> {
         self.js_imports.clone()
     }
 
-    pub fn set_js_init(&mut self, js_init: Vec<&'r str>) {
+    pub fn set_js_init(&mut self, js_init: Vec<&'static str>) {
         self.js_init = js_init;
     }
 
-    pub fn js_init(&self) -> Vec<&'r str> {
+    pub fn js_init(&self) -> Vec<&'static str> {
         self.js_init.clone()
     }
 
-    pub fn set_static_resources(&mut self, static_resources: HashMap<&'r str, &'r [u8]>) {
+    pub fn set_static_resources(&mut self, static_resources: HashMap<&'static str, &'static [u8]>) {
         self.static_resources = static_resources;
     }
 
-    pub fn static_resources(&self) -> HashMap<&'r str, &'r [u8]> {
+    pub fn static_resources(&self) -> HashMap<&'static str, &'static [u8]> {
         self.static_resources.clone()
     }
 

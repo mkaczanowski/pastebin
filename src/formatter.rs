@@ -1,6 +1,6 @@
 use handlebars::{Handlebars, JsonRender};
 
-pub fn new<'r>() -> Handlebars<'r> {
+pub fn new() -> Handlebars<'static> {
     let mut handlebars = Handlebars::new();
     handlebars.register_helper("format_url", Box::new(format_helper));
 
@@ -14,12 +14,12 @@ fn format_helper(
     _: &mut handlebars::RenderContext,
     out: &mut dyn handlebars::Output,
 ) -> Result<(), handlebars::RenderError> {
-    let prefix_val = h.param(0).ok_or(handlebars::RenderError::new(
-        "Param 0 is required for format helper.",
+    let prefix_val = h.param(0).ok_or(handlebars::RenderError::from(
+        handlebars::RenderErrorReason::ParamNotFoundForIndex("format_url", 0),
     ))?;
 
-    let uri_val = h.param(1).ok_or(handlebars::RenderError::new(
-        "Param 1 is required for format helper.",
+    let uri_val = h.param(1).ok_or(handlebars::RenderError::from(
+        handlebars::RenderErrorReason::ParamNotFoundForIndex("format_url", 1),
     ))?;
 
     let prefix = prefix_val.value().render();

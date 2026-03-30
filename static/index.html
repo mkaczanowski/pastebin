@@ -16,7 +16,7 @@
     </head>
 
     <body>
-        <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+        <nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark">
             <a class="navbar-brand" href="{{uri_prefix}}/new">PASTEBIN</a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -59,7 +59,7 @@
 
                 <div class="form-inline">
                     {{#if is_editable}}
-                    <input class="form-control" id="pastebin-password" type="password" placeholder="Password (optional)" aria-label="Password (optional)">
+                    <input class="form-control mt-2 mt-md-0 ml-md-2" id="pastebin-password" type="password" placeholder="Password (optional)" aria-label="Password (optional)">
                     {{/if}}
                     <select class="form-control ml-md-2 mt-2 mt-md-0" id="language-selector">
                         <option value="markup">Markup</option>
@@ -217,14 +217,14 @@
                         <option value="yaml">YAML</option>
                     </select>
                     {{#if is_created}}
-                        <a id="copy-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Copy</a>
+                        <a id="copy-btn" class="btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2" href="#">Copy</a>
                         {{#if (not is_burned)}}
-                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{uri_prefix}}/raw/{{pastebin_id}}">Raw</a>
-                            <a class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="{{uri_prefix}}/download/{{pastebin_id}}">Download</a>
+                            <a class="btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2" href="{{uri_prefix}}/raw/{{pastebin_id}}">Raw</a>
+                            <a class="btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2" href="{{uri_prefix}}/download/{{pastebin_id}}">Download</a>
                         {{/if}}
                     {{/if}}
                     {{#if is_editable}}
-                        <a id="send-btn" class="form-control btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2 ml-sm-2" href="#">Send</a>
+                        <a id="send-btn" class="btn btn-outline-success mt-2 mt-md-0 mb-md-0 ml-md-2" href="#">Send</a>
                     {{/if}}
                 </div>
             </div>
@@ -254,7 +254,7 @@
 
             {{#if is_editable}}
             <div class="form-group">
-                <textarea autofocus class="form-control" id="content-textarea" rows="25">{{pastebin_code}}</textarea>
+                <textarea autofocus class="form-control" id="content-textarea">{{pastebin_code}}</textarea>
             </div>
             {{/if}}
             {{#if is_created or is_clone}}

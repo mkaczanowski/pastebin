@@ -4,29 +4,102 @@ html {
 }
 
 body {
-  min-height: 75rem; /* Minimum navbar */
-  padding-top: 3.5rem; /* Margin top by nav bar */
-  padding-bottom: 3.5rem; /* Margin bottom by footer height */
+  padding-top: 3.5rem; /* clear fixed navbar */
+  padding-bottom: 60px; /* clear footer */
 }
 
 .footer {
   position: absolute;
   bottom: 0;
   width: 100%;
-  height: 60px; /* Set the fixed height of the footer here */
-  line-height: 60px; /* Vertically center the text there */
+  height: 60px;
+  line-height: 60px;
   background-color: #f5f5f5;
 }
 
 .footer a {
-   color: #000;
+  color: #000;
 }
 
 .form-group textarea {
-	margin: 0.5em 0px;
+  margin: 0.5em 0;
+  height: 70vh;
+  min-height: 200px;
+}
+
+/* Code blocks scroll horizontally on narrow viewports instead of overflowing */
+pre {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 pre[class*="language-"]:before,
 pre[class*="language-"]:after {
-    display: none;
+  display: none;
+}
+
+/* Alert message URLs wrap rather than overflow */
+.alert a {
+  word-break: break-all;
+}
+
+/* Mobile/tablet: collapsed navbar (<992px) */
+@media (max-width: 991.98px) {
+  /* Textarea fits viewport height instead of a fixed 25-row block */
+  #content-textarea {
+    height: 50vh;
+    min-height: 200px;
+  }
+
+  /* Stack form elements full-width in the open hamburger menu */
+  .navbar-collapse .form-inline {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.1rem;
+    padding-top: 0.1rem;
+    padding-bottom: 0.1rem;
+  }
+
+  .navbar-collapse .form-inline .form-control,
+  .navbar-collapse .form-inline .btn {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+    text-align: center;
+  }
+}
+
+/* Desktop: full inline navbar at ≥992px */
+@media (min-width: 992px) {
+  #pastebin-password {
+    width: 170px;
+    min-width: 60px;
+    flex-shrink: 1;
+  }
+
+  #language-selector {
+    max-width: 200px;
+    min-width: 80px;
+    flex-shrink: 1;
+  }
+
+  /* Allow form items to wrap to a second row when viewport is too narrow */
+  .navbar-collapse .form-inline {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
+  /* Allow navbar to grow tall enough to contain wrapped items */
+  .navbar {
+    align-items: flex-start;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .navbar-brand,
+  .navbar-nav {
+    margin-top: 0.25rem;
+  }
 }

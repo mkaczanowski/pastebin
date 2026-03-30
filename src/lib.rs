@@ -9,7 +9,7 @@ use rocksdb::{compaction_filter, DB};
 
 #[path = "api_generated.rs"]
 mod api_generated;
-use crate::api_generated::api::{finish_entry_buffer, get_root_as_entry, Entry, EntryArgs};
+use crate::api_generated::api::{finish_entry_buffer, root_as_entry, Entry, EntryArgs};
 
 #[macro_export]
 macro_rules! load_static_resources(
@@ -32,7 +32,7 @@ pub fn compaction_filter_expired_entries(
 ) -> compaction_filter::Decision {
     use compaction_filter::Decision::*;
 
-    let entry = get_root_as_entry(value);
+    let entry = root_as_entry(value).unwrap();
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("time went backwards")
@@ -53,13 +53,13 @@ pub fn get_extension(filename: &str) -> &str {
         .unwrap_or("")
 }
 
-pub fn get_entry_data<'r>(id: &str, state: &'r State<'r, DB>) -> Result<Vec<u8>, io::Error> {
+pub fn get_entry_data(id: &str, state: &State<DB>) -> Result<Vec<u8>, io::Error> {
     // read data from DB to Entry struct
     let root = match state.get(id).unwrap() {
         Some(root) => root,
         None => return Err(io::Error::new(io::ErrorKind::NotFound, "record not found")),
     };
-    let entry = get_root_as_entry(&root);
+    let entry = root_as_entry(&root).unwrap();
 
     // check if data expired (might not be yet deleted by rocksb compaction hook)
     let now = SystemTime::now()
@@ -82,7 +82,7 @@ pub fn get_entry_data<'r>(id: &str, state: &'r State<'r, DB>) -> Result<Vec<u8>,
 
 pub fn new_entry(
     dest: &mut Vec<u8>,
-    data: &mut rocket::data::DataStream,
+    data: &[u8],
     lang: String,
     ttl: u64,
     burn: bool,
@@ -93,16 +93,7 @@ pub fn new_entry(
     dest.clear();
     bldr.reset();
 
-    // potential speed improvement over the create_vector:
-    // https://docs.rs/flatbuffers/0.6.1/flatbuffers/struct.FlatBufferBuilder.html#method.create_vector
-    let mut tmp_vec: Vec<u8> = vec![];
-    std::io::copy(data, &mut tmp_vec).unwrap();
-
-    bldr.start_vector::<u8>(tmp_vec.len());
-    for byte in tmp_vec.iter().rev() {
-        bldr.push::<u8>(*byte);
-    }
-    let data_vec = bldr.end_vector::<u8>(tmp_vec.len());
+    let data_vec = bldr.create_vector(data);
 
     // calc expiry datetime
     let now = SystemTime::now()
