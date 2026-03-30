@@ -359,6 +359,7 @@ fn get_error_response<'r>(
     CustomResponse(
         Response::build()
             .status(status)
+            .header(ContentType::HTML)
             .sized_body(content.len(), Cursor::new(content))
             .finalize(),
     )
@@ -447,6 +448,7 @@ async fn get<'r>(
             return CustomResponse(
                 Response::build()
                     .status(err_kind)
+                    .header(ContentType::HTML)
                     .sized_body(content.len(), Cursor::new(content))
                     .finalize(),
             );
