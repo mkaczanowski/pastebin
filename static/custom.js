@@ -1,3 +1,61 @@
+// ── Web Crypto helpers ────────────────────────────────────────────────────────
+// Format: base64( salt[16] || iv[12] || ciphertext )
+// Key derivation: PBKDF2-SHA256, 100 000 iterations → AES-256-GCM key.
+
+async function cryptoEncrypt(plaintext, password) {
+    var enc  = new TextEncoder();
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv   = crypto.getRandomValues(new Uint8Array(12));
+
+    var keyMaterial = await crypto.subtle.importKey(
+        "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
+    );
+    var key = await crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt: salt, iterations: 1000000, hash: "SHA-256" },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false, ["encrypt"]
+    );
+
+    var ciphertext = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv }, key, enc.encode(plaintext)
+    );
+
+    var result = new Uint8Array(16 + 12 + ciphertext.byteLength);
+    result.set(salt, 0);
+    result.set(iv, 16);
+    result.set(new Uint8Array(ciphertext), 28);
+
+    var binary = "";
+    for (var i = 0; i < result.length; i++) { binary += String.fromCharCode(result[i]); }
+    return btoa(binary);
+}
+
+async function cryptoDecrypt(ciphertextB64, password) {
+    var enc  = new TextEncoder();
+    var data = Uint8Array.from(atob(ciphertextB64), function(c) { return c.charCodeAt(0); });
+
+    var salt       = data.slice(0, 16);
+    var iv         = data.slice(16, 28);
+    var ciphertext = data.slice(28);
+
+    var keyMaterial = await crypto.subtle.importKey(
+        "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
+    );
+    var key = await crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt: salt, iterations: 1000000, hash: "SHA-256" },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false, ["decrypt"]
+    );
+
+    var plaintext = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv }, key, ciphertext
+    );
+    return new TextDecoder().decode(plaintext);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 $(document).ready(function() {
     // ── Dark mode toggle ──────────────────────────────────────────────────────
     function isDark() {
@@ -114,23 +172,24 @@ $(document).ready(function() {
     $("#copy-btn").on("click", function(event) {
         event.preventDefault();
 
-        $(".toolbar-item button").get(0).click();
-
         var $this = $(this);
-        $this.text("Copied!");
-        $this.attr("disabled", "disabled");
+        var text = $("#pastebin-code-block").text();
 
-        setTimeout(function() {
-            $this.text("Copy");
-            $this.removeAttr("disabled");
-        }, 800);
+        navigator.clipboard.writeText(text).then(function() {
+            $this.text("Copied!");
+            $this.attr("disabled", "disabled");
 
+            setTimeout(function() {
+                $this.text("Copy");
+                $this.removeAttr("disabled");
+            }, 800);
+        });
     });
 
     $("#send-btn").on("click", function(event) {
         event.preventDefault();
 
-        uri = uri_prefix == "" ? "/" : uri_prefix;
+        var uri = uri_prefix == "" ? "/" : uri_prefix;
         uri = replaceUrlParam(uri, 'lang', $("#language-selector").val());
         uri = replaceUrlParam(uri, 'ttl', state.expiry);
         uri = replaceUrlParam(uri, 'burn', state.burn);
@@ -138,25 +197,30 @@ $(document).ready(function() {
         var data = $("#content-textarea").val();
         var pass = $("#pastebin-password").val();
 
-        if ($("#pastebin-password").val().length > 0) {
-            data = CryptoJS.AES.encrypt(data, pass).toString();
-            uri = replaceUrlParam(uri, 'encrypted', true);
+        function doPost(payload) {
+            $.ajax({
+                url: uri,
+                type: 'POST',
+                data: payload,
+                success: function(result) {
+                    var dest = uri_prefix + "/new";
+                    dest = replaceUrlParam(dest, 'level', "success");
+                    dest = replaceUrlParam(dest, 'glyph', "fas fa-check");
+                    dest = replaceUrlParam(dest, 'msg', "The paste has been successfully created:");
+                    dest = replaceUrlParam(dest, 'url', result);
+                    window.location.href = encodeURI(dest);
+                }
+            });
         }
 
-        $.ajax({
-            url: uri,
-            type: 'POST',
-            data: data,
-            success: function(result) {
-                uri = uri_prefix + "/new";
-                uri = replaceUrlParam(uri, 'level', "success");
-                uri = replaceUrlParam(uri, 'glyph', "fas fa-check");
-                uri = replaceUrlParam(uri, 'msg', "The paste has been successfully created:");
-                uri = replaceUrlParam(uri, 'url', result);
-
-                window.location.href = encodeURI(uri);
-            }
-        });
+        if (pass.length > 0) {
+            cryptoEncrypt(data, pass).then(function(encrypted) {
+                uri = replaceUrlParam(uri, 'encrypted', true);
+                doPost(encrypted);
+            });
+        } else {
+            doPost(data);
+        }
     });
 
     $('#expiry-dropdown a').click(function(event){
@@ -192,10 +256,7 @@ $(document).ready(function() {
             data = $("#content-textarea").text();
         }
 
-        var decrypted = CryptoJS.AES.decrypt(data, pass).toString(CryptoJS.enc.Utf8);
-        if (decrypted.length == 0) {
-            $("#modal-alert").removeClass("collapse");
-        } else {
+        cryptoDecrypt(data, pass).then(function(decrypted) {
             if ($("#pastebin-code-block").length) {
                 $("#pastebin-code-block").text(decrypted);
                 init_plugins();
@@ -205,6 +266,8 @@ $(document).ready(function() {
 
             $("#modal-close-btn").click();
             $("#modal-alert").alert('close');
-        }
+        }).catch(function() {
+            $("#modal-alert").removeClass("collapse");
+        });
     });
 });
