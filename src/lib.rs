@@ -80,10 +80,79 @@ pub fn get_entry_data(id: &str, state: &State<DB>) -> Result<Vec<u8>, io::Error>
     Ok(root)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rocksdb::compaction_filter::Decision;
+
+    // ── get_extension ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn get_extension_standard() {
+        assert_eq!(get_extension("file.js"), ".js");
+        assert_eq!(get_extension("archive.tar.gz"), ".gz");
+        assert_eq!(get_extension("image.PNG"), ".PNG");
+    }
+
+    #[test]
+    fn get_extension_no_dot_returns_empty() {
+        assert_eq!(get_extension("Makefile"), "");
+        assert_eq!(get_extension(""), "");
+    }
+
+    #[test]
+    fn get_extension_non_alphanumeric_chars_returns_empty() {
+        // hyphen in extension is not alphanumeric → filtered out
+        assert_eq!(get_extension("file.tar-gz"), "");
+        assert_eq!(get_extension("file.tar.gz-backup"), "");
+    }
+
+    // ── compaction_filter_expired_entries ──────────────────────────────────────
+
+    fn make_entry_with_expiry(expiry_timestamp: u64) -> Vec<u8> {
+        use api_generated::api::{finish_entry_buffer, Entry, EntryArgs};
+        use flatbuffers::FlatBufferBuilder;
+
+        let mut bldr = FlatBufferBuilder::new();
+        let data = bldr.create_vector(b"test");
+        let lang = bldr.create_string("text");
+        let args = EntryArgs {
+            create_timestamp: 0,
+            expiry_timestamp,
+            data: Some(data),
+            lang: Some(lang),
+            burn: false,
+            encrypted: false,
+        };
+        let offset = Entry::create(&mut bldr, &args);
+        finish_entry_buffer(&mut bldr, offset);
+        bldr.finished_data().to_vec()
+    }
+
+    #[test]
+    fn compaction_filter_keeps_entry_without_expiry() {
+        let buf = make_entry_with_expiry(0);
+        assert!(matches!(compaction_filter_expired_entries(0, &[], &buf), Decision::Keep));
+    }
+
+    #[test]
+    fn compaction_filter_keeps_entry_with_future_expiry() {
+        let far_future = u32::MAX as u64; // year 2106
+        let buf = make_entry_with_expiry(far_future);
+        assert!(matches!(compaction_filter_expired_entries(0, &[], &buf), Decision::Keep));
+    }
+
+    #[test]
+    fn compaction_filter_removes_entry_with_past_expiry() {
+        let buf = make_entry_with_expiry(1); // Unix epoch + 1s — definitely in the past
+        assert!(matches!(compaction_filter_expired_entries(0, &[], &buf), Decision::Remove));
+    }
+}
+
 pub fn new_entry(
     dest: &mut Vec<u8>,
     data: &[u8],
-    lang: String,
+    lang: &str,
     ttl: u64,
     burn: bool,
     encrypted: bool,
@@ -107,7 +176,7 @@ pub fn new_entry(
         create_timestamp: now,
         expiry_timestamp: expiry,
         data: Some(data_vec),
-        lang: Some(bldr.create_string(&lang)),
+        lang: Some(bldr.create_string(lang)),
         burn,
         encrypted,
     };

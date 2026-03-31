@@ -1,16 +1,18 @@
 FROM mkaczanowski/archlinuxarm:armv8 as builder
 
-RUN pacman -Sy --noconfirm rustup gcc llvm clang glibc
+RUN pacman -Sy --noconfirm rustup gcc llvm clang libclang \
+    && pacman -Scc --noconfirm
 RUN rustup default nightly
 
 WORKDIR /usr/src/pastebin
 COPY . .
 
-RUN cargo install --path . --root /tmp/pastebin
+RUN cargo install --path .
 
 FROM mkaczanowski/archlinuxarm:armv8
-RUN pacman -Sy --noconfirm glibc
-COPY --from=builder /tmp/pastebin/bin/pastebin /usr/local/bin/pastebin
+RUN pacman -Sy --noconfirm glibc \
+    && pacman -Scc --noconfirm
+COPY --from=builder /root/.cargo/bin/pastebin /usr/local/bin/pastebin
 
 ENTRYPOINT ["pastebin"]
 CMD ["--help"]

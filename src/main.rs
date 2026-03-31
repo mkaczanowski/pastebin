@@ -189,7 +189,7 @@ async fn create(
     state: &State<DB>,
     cfg: &State<PastebinConfig>,
     alphabet: &State<Vec<char>>,
-    lang: Option<String>,
+    lang: Option<&str>,
     ttl: Option<u64>,
     burn: Option<bool>,
     encrypted: Option<bool>,
@@ -210,7 +210,7 @@ async fn create(
     new_entry(
         &mut writer,
         &bytes,
-        lang.unwrap_or_else(|| "markup".to_string()),
+        lang.unwrap_or("markup"),
         ttl.unwrap_or(cfg.ttl),
         burn.unwrap_or(false),
         encrypted.unwrap_or(false),
@@ -222,7 +222,7 @@ async fn create(
 }
 
 #[delete("/<id>")]
-async fn remove(id: String, state: &State<DB>) -> Status {
+async fn remove(id: &str, state: &State<DB>) -> Status {
     match state.delete(id) {
         Ok(_) => Status::Ok,
         Err(_) => Status::InternalServerError,
@@ -232,8 +232,8 @@ async fn remove(id: String, state: &State<DB>) -> Status {
 #[allow(clippy::too_many_arguments)]
 #[get("/<id>?<lang>")]
 async fn view_paste<'r>(
-    id: String,
-    lang: Option<String>,
+    id: &'r str,
+    lang: Option<&'r str>,
     state: &'r State<DB>,
     handlebars: &'r State<Handlebars<'static>>,
     plugin_manager: &'r State<PluginManager>,
@@ -244,7 +244,7 @@ async fn view_paste<'r>(
     let resources = plugin_manager.static_resources();
     let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).into_owned();
 
-    let root = match get_entry_data(&id, state) {
+    let root = match get_entry_data(id, state) {
         Ok(x) => x,
         Err(e) => {
             let status = match e.kind() {
@@ -272,7 +272,7 @@ async fn view_paste<'r>(
 
     let entry = root_as_entry(&root).unwrap();
     let selected_lang = lang
-        .unwrap_or_else(|| entry.lang().unwrap().to_string())
+        .unwrap_or_else(|| entry.lang().unwrap())
         .to_lowercase();
 
     let mut pastebin_cls = Vec::new();
@@ -334,11 +334,11 @@ async fn get_new<'r>(
     plugin_manager: &'r State<PluginManager>,
     ui_expiry_times: &'r State<Vec<(String, u64)>>,
     ui_expiry_default: &'r State<String>,
-    id: Option<String>,
-    level: Option<String>,
-    glyph: Option<String>,
-    msg: Option<String>,
-    url: Option<String>,
+    id: Option<&'r str>,
+    level: Option<&'r str>,
+    glyph: Option<&'r str>,
+    msg: Option<&'r str>,
+    url: Option<&'r str>,
 ) -> CustomResponse<'r> {
     let resources = plugin_manager.static_resources();
     let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).into_owned();
@@ -347,7 +347,7 @@ async fn get_new<'r>(
         "is_editable": "true",
         "version": VERSION,
         "msg": msg.unwrap_or_default(),
-        "level": level.unwrap_or_else(|| "secondary".to_string()),
+        "level": level.unwrap_or("secondary"),
         "glyph": glyph.unwrap_or_default(),
         "url": url.unwrap_or_default(),
         "uri_prefix": cfg.uri_prefix,
@@ -359,7 +359,18 @@ async fn get_new<'r>(
     });
 
     if let Some(id) = id {
-        let root = get_entry_data(&id, state).unwrap();
+        let root = match get_entry_data(id, state) {
+            Ok(r) => r,
+            Err(_) => {
+                return CustomResponse(
+                    Response::build()
+                        .status(Status::NotFound)
+                        .header(ContentType::HTML)
+                        .sized_body(0, Cursor::new(""))
+                        .finalize(),
+                );
+            }
+        };
         let entry = root_as_entry(&root).unwrap();
 
         if entry.encrypted() {
@@ -381,8 +392,8 @@ async fn get_new<'r>(
 }
 
 #[get("/raw/<id>")]
-async fn get_raw(id: String, state: &State<DB>) -> CustomResponse<'static> {
-    let root = match get_entry_data(&id, state) {
+async fn get_raw(id: &str, state: &State<DB>) -> CustomResponse<'static> {
+    let root = match get_entry_data(id, state) {
         Ok(x) => x,
         Err(e) => {
             let status = match e.kind() {
@@ -406,7 +417,7 @@ async fn get_raw(id: String, state: &State<DB>) -> CustomResponse<'static> {
 }
 
 #[get("/download/<id>")]
-async fn get_binary(id: String, state: &State<DB>) -> CustomResponse<'static> {
+async fn get_binary(id: &str, state: &State<DB>) -> CustomResponse<'static> {
     let inner = get_raw(id, state).await;
     CustomResponse(
         Response::build_from(inner.0)
@@ -417,14 +428,14 @@ async fn get_binary(id: String, state: &State<DB>) -> CustomResponse<'static> {
 
 #[get("/static/<resource>")]
 async fn get_static<'r>(
-    resource: String,
+    resource: &'r str,
     handlebars: &'r State<Handlebars<'static>>,
     plugin_manager: &'r State<PluginManager>,
     cfg: &'r State<PastebinConfig>,
 ) -> CustomResponse<'r> {
     let resources = plugin_manager.static_resources();
     let pth = format!("/static/{resource}");
-    let ext = get_extension(&resource).trim_start_matches('.').to_string();
+    let ext = get_extension(resource).trim_start_matches('.').to_string();
 
     let content = match resources.get(pth.as_str()) {
         Some(data) => *data,
@@ -435,7 +446,7 @@ async fn get_static<'r>(
         }
     };
 
-    let content_type = ContentType::from_extension(&ext).unwrap();
+    let content_type = ContentType::from_extension(&ext).unwrap_or(ContentType::Binary);
 
     CustomResponse(
         Response::build()
@@ -666,6 +677,139 @@ mod tests {
         let contents = std::fs::read("static/favicon.ico").unwrap();
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.into_bytes(), Some(contents));
+    }
+
+    // ── get_url unit tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn get_url_explicit_uri_overrides_request_host() {
+        let mut cfg = PastebinConfig::parse_from(["pastebin"]);
+        cfg.uri = Some("https://example.com".to_string());
+        let rh = Some(RequestHost { scheme: "http".to_string(), host: "other.com".to_string() });
+        assert_eq!(get_url(&cfg, rh), "https://example.com");
+    }
+
+    #[test]
+    fn get_url_uses_forwarded_host_and_proto() {
+        let cfg = PastebinConfig::parse_from(["pastebin"]);
+        let rh = Some(RequestHost { scheme: "https".to_string(), host: "proxy.example.com".to_string() });
+        assert_eq!(get_url(&cfg, rh), "https://proxy.example.com");
+    }
+
+    #[test]
+    fn get_url_forwarded_host_defaults_scheme_to_http() {
+        let cfg = PastebinConfig::parse_from(["pastebin"]);
+        // RequestHost is only constructed with a real scheme via from_request;
+        // when X-Forwarded-Proto is absent, scheme defaults to "http" in the guard.
+        let rh = Some(RequestHost { scheme: "http".to_string(), host: "proxy.example.com".to_string() });
+        assert_eq!(get_url(&cfg, rh), "http://proxy.example.com");
+    }
+
+    #[test]
+    fn get_url_fallback_includes_nonstandard_port() {
+        let mut cfg = PastebinConfig::parse_from(["pastebin"]);
+        cfg.address = "127.0.0.1".to_string();
+        cfg.port = 9000;
+        assert_eq!(get_url(&cfg, None), "http://127.0.0.1:9000");
+    }
+
+    #[test]
+    fn get_url_omits_port_80() {
+        let mut cfg = PastebinConfig::parse_from(["pastebin"]);
+        cfg.address = "myhost".to_string();
+        cfg.port = 80;
+        assert_eq!(get_url(&cfg, None), "http://myhost");
+    }
+
+    #[test]
+    fn get_url_omits_port_443_with_tls() {
+        let mut cfg = PastebinConfig::parse_from(["pastebin"]);
+        cfg.address = "myhost".to_string();
+        cfg.port = 443;
+        cfg.tls_certs = Some("/path/cert.pem".to_string());
+        assert_eq!(get_url(&cfg, None), "https://myhost");
+    }
+
+    // ── forwarded-header integration ──────────────────────────────────────────
+
+    #[test]
+    fn create_paste_url_uses_x_forwarded_host_and_proto() {
+        let (client, _tmp) = create_client();
+        let response = client
+            .post("/")
+            .header(rocket::http::Header::new("X-Forwarded-Host", "public.example.com"))
+            .header(rocket::http::Header::new("X-Forwarded-Proto", "https"))
+            .body("test data")
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        let url = response.into_string().unwrap();
+        assert!(url.starts_with("https://public.example.com/"), "unexpected url: {url}");
+    }
+
+    #[test]
+    fn create_paste_url_uses_host_header_when_no_forwarded_host() {
+        let (client, _tmp) = create_client();
+        let response = client
+            .post("/")
+            .header(rocket::http::Header::new("Host", "direct.example.com"))
+            .body("test data")
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        let url = response.into_string().unwrap();
+        assert!(url.starts_with("http://direct.example.com/"), "unexpected url: {url}");
+    }
+
+    // ── uri_prefix integration ────────────────────────────────────────────────
+
+    fn create_client_with_prefix(prefix: &str) -> (Client, TempDir) {
+        let tmp_dir = TempDir::new().unwrap();
+        let mut config = PastebinConfig::parse_from(["pastebin"]);
+        config.db_path = tmp_dir.path().join("database").to_str().unwrap().to_string();
+        config.uri_prefix = prefix.to_string();
+        let client = Client::tracked(rocket_instance(config)).expect("invalid rocket instance");
+        (client, tmp_dir)
+    }
+
+    #[test]
+    fn uri_prefix_index_redirects_to_prefix_new() {
+        let (client, _tmp) = create_client_with_prefix("/paste");
+        let response = client.get("/paste/").dispatch();
+        assert_eq!(response.status(), Status::SeeOther);
+        let location = response.headers().get_one("Location").unwrap();
+        assert_eq!(location, "/paste/new");
+    }
+
+    #[test]
+    fn uri_prefix_new_page_is_accessible() {
+        let (client, _tmp) = create_client_with_prefix("/paste");
+        let response = client.get("/paste/new").dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::HTML));
+    }
+
+    #[test]
+    fn uri_prefix_static_assets_are_accessible() {
+        let (client, _tmp) = create_client_with_prefix("/paste");
+        let response = client.get("/paste/static/favicon.ico").dispatch();
+        assert_eq!(response.status(), Status::Ok);
+    }
+
+    #[test]
+    fn clone_nonexistent_paste_returns_not_found() {
+        let (client, _tmp) = create_client();
+        let response = client.get("/new?id=doesnotexist").dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
+    fn static_unknown_extension_falls_back_to_octet_stream() {
+        // Regression: ContentType::from_extension().unwrap() would panic for extensions
+        // Rocket doesn't recognise. The fix uses unwrap_or(ContentType::Binary).
+        assert!(ContentType::from_extension("flatbuffers").is_none());
+        assert_eq!(
+            ContentType::from_extension("flatbuffers").unwrap_or(ContentType::Binary),
+            ContentType::Binary,
+        );
     }
 
     #[test]
