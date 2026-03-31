@@ -1,24 +1,94 @@
+/* ── Theme variables ───────────────────────────────────────────────────────── */
+:root {
+  --body-bg:          #fff;
+  --body-color:       #212529;
+  --input-bg:         #fff;
+  --input-color:      #495057;
+  --input-border:     #ced4da;
+  --footer-bg:        #f5f5f5;
+  --footer-color:     #000;
+  --dropdown-bg:      #fff;
+  --dropdown-color:   #212529;
+  --dropdown-hover:   #f8f9fa;
+  --pre-bg:           #fdfdfd;
+  --pre-border:       #ddd;
+  --scrollbar-thumb:  #aaa;
+}
+
+[data-theme="dark"] {
+  --body-bg:          #1e1e1e;
+  --body-color:       #d4d4d4;
+  --input-bg:         #2d2d2d;
+  --input-color:      #d4d4d4;
+  --input-border:     #444;
+  --footer-bg:        #252525;
+  --footer-color:     #999;
+  --dropdown-bg:      #2d2d2d;
+  --dropdown-color:   #d4d4d4;
+  --dropdown-hover:   #3a3a3a;
+  --pre-bg:           #1e1e1e;
+  --pre-border:       #444;
+  --scrollbar-thumb:  #555;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --body-bg:          #1e1e1e;
+    --body-color:       #d4d4d4;
+    --input-bg:         #2d2d2d;
+    --input-color:      #d4d4d4;
+    --input-border:     #444;
+    --footer-bg:        #252525;
+    --footer-color:     #999;
+    --dropdown-bg:      #2d2d2d;
+    --dropdown-color:   #d4d4d4;
+    --dropdown-hover:   #3a3a3a;
+    --pre-bg:           #1e1e1e;
+    --pre-border:       #444;
+    --scrollbar-thumb:  #555;
+  }
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
 html {
   position: relative;
   min-height: 100%;
 }
 
 body {
-  padding-top: 3.5rem; /* clear fixed navbar */
-  padding-bottom: 60px; /* clear footer */
+  padding-top: 3.5rem;
+  padding-bottom: 60px;
+  background-color: var(--body-bg);
+  color: var(--body-color);
+  transition: background-color 0.2s, color 0.2s;
 }
 
+/* ── Footer ────────────────────────────────────────────────────────────────── */
 .footer {
   position: absolute;
   bottom: 0;
   width: 100%;
   height: 60px;
   line-height: 60px;
-  background-color: #f5f5f5;
+  background-color: var(--footer-bg);
+  transition: background-color 0.2s;
 }
 
 .footer a {
-  color: #000;
+  color: var(--footer-color);
+}
+
+/* ── Form controls ─────────────────────────────────────────────────────────── */
+.form-control {
+  background-color: var(--input-bg);
+  color: var(--input-color);
+  border-color: var(--input-border);
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.form-control:focus {
+  background-color: var(--input-bg);
+  color: var(--input-color);
 }
 
 .form-group textarea {
@@ -27,10 +97,29 @@ body {
   min-height: 200px;
 }
 
-/* Code blocks scroll horizontally on narrow viewports instead of overflowing */
+/* ── Dropdowns ─────────────────────────────────────────────────────────────── */
+.dropdown-menu {
+  background-color: var(--dropdown-bg);
+  border-color: var(--input-border);
+}
+
+.dropdown-item {
+  color: var(--dropdown-color);
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background-color: var(--dropdown-hover);
+  color: var(--dropdown-color);
+}
+
+/* ── Code blocks ───────────────────────────────────────────────────────────── */
 pre {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  background-color: var(--pre-bg);
+  border-color: var(--pre-border);
+  transition: background-color 0.2s;
 }
 
 pre[class*="language-"]:before,
@@ -38,20 +127,126 @@ pre[class*="language-"]:after {
   display: none;
 }
 
-/* Alert message URLs wrap rather than overflow */
+/* Prism dark mode overrides */
+[data-theme="dark"] pre[class*="language-"],
+[data-theme="dark"] code[class*="language-"] {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  text-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) pre[class*="language-"],
+  :root:not([data-theme="light"]) code[class*="language-"] {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    text-shadow: none;
+  }
+}
+
+[data-theme="dark"] .token.comment,
+[data-theme="dark"] .token.prolog,
+[data-theme="dark"] .token.doctype,
+[data-theme="dark"] .token.cdata {
+  color: #6a9955;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .token.comment,
+  :root:not([data-theme="light"]) .token.prolog,
+  :root:not([data-theme="light"]) .token.doctype,
+  :root:not([data-theme="light"]) .token.cdata {
+    color: #6a9955;
+  }
+}
+
+[data-theme="dark"] .token.punctuation { color: #d4d4d4; }
+[data-theme="dark"] .token.property,
+[data-theme="dark"] .token.tag,
+[data-theme="dark"] .token.boolean,
+[data-theme="dark"] .token.number,
+[data-theme="dark"] .token.constant,
+[data-theme="dark"] .token.symbol,
+[data-theme="dark"] .token.deleted { color: #b5cea8; }
+[data-theme="dark"] .token.selector,
+[data-theme="dark"] .token.attr-name,
+[data-theme="dark"] .token.string,
+[data-theme="dark"] .token.char,
+[data-theme="dark"] .token.builtin,
+[data-theme="dark"] .token.inserted { color: #ce9178; }
+[data-theme="dark"] .token.operator,
+[data-theme="dark"] .token.entity,
+[data-theme="dark"] .token.url,
+[data-theme="dark"] .language-css .token.string,
+[data-theme="dark"] .style .token.string { color: #d4d4d4; }
+[data-theme="dark"] .token.atrule,
+[data-theme="dark"] .token.attr-value,
+[data-theme="dark"] .token.keyword { color: #569cd6; }
+[data-theme="dark"] .token.function,
+[data-theme="dark"] .token.class-name { color: #dcdcaa; }
+[data-theme="dark"] .token.regex,
+[data-theme="dark"] .token.important,
+[data-theme="dark"] .token.variable { color: #9cdcfe; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .token.punctuation { color: #d4d4d4; }
+  :root:not([data-theme="light"]) .token.property,
+  :root:not([data-theme="light"]) .token.tag,
+  :root:not([data-theme="light"]) .token.boolean,
+  :root:not([data-theme="light"]) .token.number,
+  :root:not([data-theme="light"]) .token.constant,
+  :root:not([data-theme="light"]) .token.symbol,
+  :root:not([data-theme="light"]) .token.deleted { color: #b5cea8; }
+  :root:not([data-theme="light"]) .token.selector,
+  :root:not([data-theme="light"]) .token.attr-name,
+  :root:not([data-theme="light"]) .token.string,
+  :root:not([data-theme="light"]) .token.char,
+  :root:not([data-theme="light"]) .token.builtin,
+  :root:not([data-theme="light"]) .token.inserted { color: #ce9178; }
+  :root:not([data-theme="light"]) .token.operator,
+  :root:not([data-theme="light"]) .token.entity,
+  :root:not([data-theme="light"]) .token.url,
+  :root:not([data-theme="light"]) .language-css .token.string,
+  :root:not([data-theme="light"]) .style .token.string { color: #d4d4d4; }
+  :root:not([data-theme="light"]) .token.atrule,
+  :root:not([data-theme="light"]) .token.attr-value,
+  :root:not([data-theme="light"]) .token.keyword { color: #569cd6; }
+  :root:not([data-theme="light"]) .token.function,
+  :root:not([data-theme="light"]) .token.class-name { color: #dcdcaa; }
+  :root:not([data-theme="light"]) .token.regex,
+  :root:not([data-theme="light"]) .token.important,
+  :root:not([data-theme="light"]) .token.variable { color: #9cdcfe; }
+}
+
+/* ── Alerts ────────────────────────────────────────────────────────────────── */
 .alert a {
   word-break: break-all;
 }
 
-/* Mobile/tablet: collapsed navbar (<992px) */
+/* ── Dark mode toggle button (footer) ──────────────────────────────────────── */
+#theme-toggle {
+  background: none;
+  border: 1px solid var(--input-border);
+  color: var(--footer-color);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  line-height: 1.5;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+#theme-toggle:hover {
+  border-color: var(--body-color);
+  color: var(--body-color);
+}
+
+/* ── Mobile: collapsed navbar (<992px) ────────────────────────────────────── */
 @media (max-width: 991.98px) {
-  /* Textarea fits viewport height instead of a fixed 25-row block */
   #content-textarea {
     height: 50vh;
     min-height: 200px;
   }
 
-  /* Stack form elements full-width in the open hamburger menu */
   .navbar-collapse .form-inline {
     flex-direction: column;
     align-items: stretch;
@@ -68,9 +263,10 @@ pre[class*="language-"]:after {
     margin-top: 0 !important;
     text-align: center;
   }
+
 }
 
-/* Desktop: full inline navbar at ≥992px */
+/* ── Desktop: full inline navbar at ≥992px ─────────────────────────────────── */
 @media (min-width: 992px) {
   #pastebin-password {
     width: 170px;
@@ -84,14 +280,12 @@ pre[class*="language-"]:after {
     flex-shrink: 1;
   }
 
-  /* Allow form items to wrap to a second row when viewport is too narrow */
   .navbar-collapse .form-inline {
     flex-wrap: wrap;
     row-gap: 0.5rem;
     justify-content: flex-end;
   }
 
-  /* Allow navbar to grow tall enough to contain wrapped items */
   .navbar {
     align-items: flex-start;
     padding-top: 0.5rem;

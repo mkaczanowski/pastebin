@@ -263,8 +263,11 @@
         {{/if}}
     </main>
 
-    <footer class="footer">
-        <span class="text-muted ml-4"><a href="https://github.com/mkaczanowski/pastebin"><i class="fab fa-github"></i></a> - pastebin v{{version}}</span>
+    <footer class="footer d-flex align-items-center justify-content-between px-4">
+        <span class="text-muted"><a href="https://github.com/mkaczanowski/pastebin"><i class="fab fa-github"></i></a> - pastebin v{{version}}</span>
+        <button id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+            <i class="fas fa-moon"></i>
+        </button>
     </footer>
 
     {{#if is_encrypted}}
@@ -322,6 +325,15 @@
     </div>
     {{/if}}
 
+    <script>
+        // Apply saved theme immediately to avoid flash of wrong theme.
+        (function () {
+            var saved = localStorage.getItem('theme');
+            if (saved) {
+                document.documentElement.setAttribute('data-theme', saved);
+            }
+        })();
+    </script>
     <script>
         var uri_prefix="{{uri_prefix}}";
 
