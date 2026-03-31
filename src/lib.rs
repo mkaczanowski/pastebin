@@ -45,6 +45,21 @@ pub fn compaction_filter_expired_entries(
     }
 }
 
+/// Validate a Prism language identifier. Prism names are lowercase alphanumeric
+/// plus `-`, `_`, `+`, `#` (e.g. "c++", "c#", "shell-session"). Anything else
+/// falls back to "markup" so it can never inject arbitrary CSS class names.
+pub fn sanitize_lang(lang: &str) -> &str {
+    if !lang.is_empty()
+        && lang
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '+' | '#'))
+    {
+        lang
+    } else {
+        "markup"
+    }
+}
+
 pub fn get_extension(filename: &str) -> &str {
     filename
         .rfind('.')
@@ -84,6 +99,25 @@ pub fn get_entry_data(id: &str, state: &State<DB>) -> Result<Vec<u8>, io::Error>
 mod tests {
     use super::*;
     use rocksdb::compaction_filter::Decision;
+
+    // ── sanitize_lang ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn sanitize_lang_accepts_valid_identifiers() {
+        assert_eq!(sanitize_lang("javascript"), "javascript");
+        assert_eq!(sanitize_lang("c++"), "c++");
+        assert_eq!(sanitize_lang("c#"), "c#");
+        assert_eq!(sanitize_lang("shell-session"), "shell-session");
+        assert_eq!(sanitize_lang("markup"), "markup");
+    }
+
+    #[test]
+    fn sanitize_lang_rejects_invalid_chars() {
+        assert_eq!(sanitize_lang("java script"), "markup"); // space
+        assert_eq!(sanitize_lang("<script>"), "markup");    // angle brackets
+        assert_eq!(sanitize_lang("lang/../../etc"), "markup"); // path traversal chars
+        assert_eq!(sanitize_lang(""), "markup");            // empty string
+    }
 
     // ── get_extension ─────────────────────────────────────────────────────────
 

@@ -24,7 +24,7 @@ mod formatter;
 
 #[macro_use]
 mod lib;
-use lib::{compaction_filter_expired_entries, get_entry_data, get_extension, new_entry};
+use lib::{compaction_filter_expired_entries, get_entry_data, get_extension, new_entry, sanitize_lang};
 
 mod plugins;
 use plugins::plugin::{Plugin, PluginManager};
@@ -271,9 +271,10 @@ async fn view_paste<'r>(
     };
 
     let entry = root_as_entry(&root).unwrap();
-    let selected_lang = lang
-        .unwrap_or_else(|| entry.lang().unwrap())
+    let lowercased = lang
+        .unwrap_or_else(|| entry.lang().unwrap_or("markup"))
         .to_lowercase();
+    let selected_lang = sanitize_lang(&lowercased);
 
     let mut pastebin_cls = Vec::new();
     if cfg.ui_line_numbers {
@@ -377,7 +378,7 @@ async fn get_new<'r>(
             map["is_encrypted"] = json!("true");
         }
         map["pastebin_code"] =
-            json!(std::str::from_utf8(entry.data().unwrap().bytes()).unwrap());
+            json!(String::from_utf8_lossy(entry.data().unwrap().bytes()));
     }
 
     let content = handlebars.render_template(&html, &map).unwrap();
