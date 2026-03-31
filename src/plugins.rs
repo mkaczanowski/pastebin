@@ -4,7 +4,7 @@ pub mod prism;
 
 use std::collections::HashMap;
 
-pub fn new<'r>(plugins: Vec<Box<dyn plugin::Plugin<'r>>>) -> plugin::PluginManager<'r> {
+pub fn new(plugins: Vec<Box<dyn plugin::Plugin>>) -> plugin::PluginManager {
     let base_static_resources = load_static_resources!(
     "/static/index.html" => "../static/index.html",
     "/static/custom.js" => "../static/custom.js",

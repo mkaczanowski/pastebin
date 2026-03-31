@@ -1,14 +1,15 @@
-FROM rustlang/rust:nightly as builder
+FROM rustlang/rust:nightly-bookworm-slim as builder
 
-RUN apt-get update && apt-get install -y apt-utils software-properties-common lsb-release
-RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    clang llvm libclang-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/pastebin
 COPY . .
 
 RUN cargo install --path .
 
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 COPY --from=builder /usr/local/cargo/bin/pastebin /usr/local/bin/pastebin
 
 ENTRYPOINT ["pastebin"]

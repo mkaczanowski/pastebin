@@ -6,12 +6,11 @@ services:
     container_name: pastebin
     volumes:
       - $DOCKERDIR/pastebin:/var/lib/pastebin
+      - ./db:/var/lib/pastebin/
     restart: unless-stopped
     command: --address 0.0.0.0 --port 8081 --uri ${URI} --db=/var/lib/pastebin/
     ports:
       - "8081:8081"
-    volumes:
-      - ./db:/var/lib/pastebin/
 
   nginx:
     image: "nginx"

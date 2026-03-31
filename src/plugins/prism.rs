@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::plugins::plugin::PastebinPlugin;
 
-pub fn new<'r>() -> PastebinPlugin<'r> {
+pub fn new() -> PastebinPlugin {
     PastebinPlugin {
         css_imports: vec!["/static/prism.css"],
         js_imports: vec!["/static/prism.js"],

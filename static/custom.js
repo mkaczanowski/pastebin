@@ -1,4 +1,38 @@
 $(document).ready(function() {
+    // ── Dark mode toggle ──────────────────────────────────────────────────────
+    function isDark() {
+        var theme = document.documentElement.getAttribute('data-theme');
+        if (theme === 'dark') return true;
+        if (theme === 'light') return false;
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    function applyTheme(dark) {
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        $('#theme-toggle i').toggleClass('fa-moon', !dark).toggleClass('fa-sun', dark);
+    }
+
+    applyTheme(isDark());
+
+    $('#theme-toggle').on('click', function () {
+        var dark = !isDark();
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+        applyTheme(dark);
+        if (typeof Prism !== 'undefined') {
+            Prism.highlightAll();
+        }
+    });
+
+    // Re-sync icon if OS preference changes while the page is open.
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+            if (!localStorage.getItem('theme')) {
+                applyTheme(isDark());
+            }
+        });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     function replaceUrlParam(url, param, value) {
         if (value == null) {
             value = '';
