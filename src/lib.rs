@@ -95,6 +95,45 @@ pub fn get_entry_data(id: &str, state: &State<DB>) -> Result<Vec<u8>, io::Error>
     Ok(root)
 }
 
+pub fn new_entry(
+    dest: &mut Vec<u8>,
+    data: &[u8],
+    lang: &str,
+    ttl: u64,
+    burn: bool,
+    encrypted: bool,
+) {
+    let mut bldr = FlatBufferBuilder::new();
+
+    dest.clear();
+    bldr.reset();
+
+    let data_vec = bldr.create_vector(data);
+
+    // calc expiry datetime
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("time went backwards")
+        .as_secs();
+    let expiry = if ttl == 0 { ttl } else { now + ttl };
+
+    // setup actual struct
+    let args = EntryArgs {
+        create_timestamp: now,
+        expiry_timestamp: expiry,
+        data: Some(data_vec),
+        lang: Some(bldr.create_string(lang)),
+        burn,
+        encrypted,
+    };
+
+    let user_offset = Entry::create(&mut bldr, &args);
+    finish_entry_buffer(&mut bldr, user_offset);
+
+    let finished_data = bldr.finished_data();
+    dest.extend_from_slice(finished_data);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,43 +220,4 @@ mod tests {
         let buf = make_entry_with_expiry(1); // Unix epoch + 1s — definitely in the past
         assert!(matches!(compaction_filter_expired_entries(0, &[], &buf), Decision::Remove));
     }
-}
-
-pub fn new_entry(
-    dest: &mut Vec<u8>,
-    data: &[u8],
-    lang: &str,
-    ttl: u64,
-    burn: bool,
-    encrypted: bool,
-) {
-    let mut bldr = FlatBufferBuilder::new();
-
-    dest.clear();
-    bldr.reset();
-
-    let data_vec = bldr.create_vector(data);
-
-    // calc expiry datetime
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("time went backwards")
-        .as_secs();
-    let expiry = if ttl == 0 { ttl } else { now + ttl };
-
-    // setup actual struct
-    let args = EntryArgs {
-        create_timestamp: now,
-        expiry_timestamp: expiry,
-        data: Some(data_vec),
-        lang: Some(bldr.create_string(lang)),
-        burn,
-        encrypted,
-    };
-
-    let user_offset = Entry::create(&mut bldr, &args);
-    finish_entry_buffer(&mut bldr, user_offset);
-
-    let finished_data = bldr.finished_data();
-    dest.extend_from_slice(finished_data);
 }
