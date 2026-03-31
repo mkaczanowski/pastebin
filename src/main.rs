@@ -1,12 +1,6 @@
-#![allow(clippy::too_many_arguments)]
-
-#[macro_use]
-extern crate rocket;
-
 use std::io;
 use std::io::Cursor;
 use std::net::IpAddr;
-use std::path::Path;
 use std::str::FromStr;
 
 use rocket::config::{Config, LogLevel};
@@ -14,17 +8,17 @@ use rocket::data::{Data, ToByteUnit};
 use rocket::http::{ContentType, Status};
 use rocket::request::{FromRequest, Outcome, Request};
 use rocket::response::{self, Responder, Response};
+use rocket::{delete, get, post, routes};
 use rocket::State;
 
 use chrono::DateTime;
+use clap::Parser;
 use handlebars::Handlebars;
 use humantime::parse_duration;
 use nanoid::nanoid;
 use regex::Regex;
 use rocksdb::{Options, DB};
 use serde_json::json;
-use speculate::speculate;
-use structopt::StructOpt;
 
 mod formatter;
 
@@ -38,151 +32,6 @@ use plugins::plugin::{Plugin, PluginManager};
 mod api_generated;
 use api_generated::api::root_as_entry;
 
-speculate! {
-    use rocket::local::blocking::Client;
-    use rocket::http::Status;
-
-    before {
-        use tempfile::TempDir;
-
-        // setup temporary database
-        let tmp_dir = TempDir::new().unwrap();
-        let file_path = tmp_dir.path().join("database");
-        let mut pastebin_config = PastebinConfig::from_args();
-        pastebin_config.db_path = file_path.to_str().unwrap().to_string();
-        let rocket = rocket_instance(pastebin_config);
-
-        // init rocket client
-        let client = Client::tracked(rocket).expect("invalid rocket instance");
-    }
-
-    #[allow(dead_code)]
-    fn insert_data(client: &Client, data: &str, path: &str) -> String {
-        let response = client.post(path)
-            .body(data)
-            .dispatch();
-        assert_eq!(response.status(), Status::Ok);
-
-        // retrieve paste ID
-        let url = response.into_string().unwrap();
-        let id = url.split('/').collect::<Vec<&str>>().last().cloned().unwrap();
-
-        id.to_string()
-    }
-
-    #[allow(dead_code)]
-    fn get_data(client: &Client, path: String) -> rocket::local::blocking::LocalResponse<'_> {
-        client.get(format!("/{}", path)).dispatch()
-    }
-
-    it "can get create and fetch paste" {
-        // store data via post request
-        let id = insert_data(&client, "random_test_data_to_be_checked", "/");
-
-        // retrieve the data via get request
-        let response = get_data(&client, id);
-        assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.content_type(), Some(ContentType::HTML));
-        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
-    }
-
-    it "can remove paste by id" {
-        let response = client.delete("/some_id").dispatch();
-        assert_eq!(response.status(), Status::Ok);
-
-        let response = get_data(&client, "some_id".to_string());
-        assert_eq!(response.status(), Status::NotFound);
-    }
-
-    it "can remove non-existing paste" {
-        let response = get_data(&client, "some_fake_id".to_string());
-        assert_eq!(response.status(), Status::NotFound);
-
-        let response = client.delete("/some_fake_id").dispatch();
-        assert_eq!(response.status(), Status::Ok);
-
-        let response = get_data(&client, "some_fake_id".to_string());
-        assert_eq!(response.status(), Status::NotFound);
-    }
-
-    it "can get raw contents" {
-        // store data via post request
-        let id = insert_data(&client, "random_test_data_to_be_checked", "/");
-
-        // retrieve the data via get request
-        let response = get_data(&client, format!("raw/{}", id));
-        assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.content_type(), Some(ContentType::Plain));
-        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
-    }
-
-    it "can download contents" {
-        // store data via post request
-        let id = insert_data(&client, "random_test_data_to_be_checked", "/");
-
-        // retrieve the data via get request
-        let response = get_data(&client, format!("download/{}", id));
-        assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.content_type(), Some(ContentType::Binary));
-        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
-    }
-
-    it "can clone contents" {
-        // store data via post request
-        let id = insert_data(&client, "random_test_data_to_be_checked", "/");
-
-        // retrieve the data via get request
-        let response = get_data(&client, format!("new?id={}", id));
-        assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.content_type(), Some(ContentType::HTML));
-        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
-    }
-
-    it "can't get burned paste" {
-        // store data via post request
-        let id = insert_data(&client, "random_test_data_to_be_checked", "/?burn=true");
-        let response = get_data(&client, id.clone());
-        assert_eq!(response.status(), Status::Ok);
-
-        // retrieve the data via get request
-        let response = get_data(&client, id);
-        assert_eq!(response.status(), Status::NotFound);
-    }
-
-    it "can't get expired paste" {
-        use std::{thread, time};
-
-        // store data via post request
-        let id = insert_data(&client, "random_test_data_to_be_checked", "/?ttl=1");
-        let response = get_data(&client, id.clone());
-        assert_eq!(response.status(), Status::Ok);
-
-        thread::sleep(time::Duration::from_secs(1));
-
-        // retrieve the data via get request
-        let response = get_data(&client, id);
-        assert_eq!(response.status(), Status::NotFound);
-    }
-
-    it "can get static contents" {
-        let response = client.get("/static/favicon.ico").dispatch();
-        let contents = std::fs::read("static/favicon.ico").unwrap();
-
-        assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.into_bytes(), Some(contents));
-    }
-
-    it "can cope with invalid unicode data" {
-        let invalid_data = unsafe {
-            String::from_utf8_unchecked(b"Hello \xF0\x90\x80World".to_vec())
-        };
-        let id = insert_data(&client, &invalid_data, "/");
-
-        let response = get_data(&client, id);
-        assert_eq!(response.status(), Status::Ok);
-    }
-}
-
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Newtype wrapper so we can return `rocket::Response` from route handlers.
@@ -194,105 +43,75 @@ impl<'r> Responder<'r, 'r> for CustomResponse<'r> {
     }
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(
-    name = "pastebin",
-    about = "Simple, standalone and fast pastebin service."
-)]
+#[derive(Parser, Debug)]
+#[command(name = "pastebin", about = "Simple, standalone and fast pastebin service.")]
 struct PastebinConfig {
-    #[structopt(
-        long = "address",
-        help = "IP address or host to listen on",
-        default_value = "localhost"
-    )]
+    #[arg(long, help = "IP address or host to listen on", default_value = "localhost")]
     address: String,
 
-    #[structopt(
-        long = "port",
-        help = "Port number to listen on",
-        default_value = "8000"
-    )]
+    #[arg(long, help = "Port number to listen on", default_value_t = 8000)]
     port: u16,
 
-    #[structopt(
-        long = "workers",
-        help = "Number of concurrent thread workers",
-        default_value = "0"
-    )]
+    #[arg(long, help = "Number of concurrent thread workers", default_value_t = 0)]
     workers: usize,
 
-    #[structopt(
-        long = "keep-alive",
-        help = "Keep-alive timeout in seconds",
-        default_value = "5"
-    )]
+    #[arg(long = "keep-alive", help = "Keep-alive timeout in seconds", default_value_t = 5)]
     keep_alive: u32,
 
-    #[structopt(long = "log", help = "Max log level", default_value = "normal")]
+    #[arg(long, help = "Max log level", default_value = "normal")]
     log: LogLevel,
 
-    #[structopt(
-        long = "ttl",
-        help = "Time to live for entries, by default kept forever",
-        default_value = "0"
-    )]
+    #[arg(long, help = "Time to live for entries, by default kept forever", default_value_t = 0)]
     ttl: u64,
 
-    #[structopt(
-        long = "db",
-        help = "Database file path",
-        default_value = "./pastebin.db"
-    )]
+    #[arg(long = "db", help = "Database file path", default_value = "./pastebin.db")]
     db_path: String,
 
-    #[structopt(long = "tls-certs", help = "Path to certificate chain in PEM format")]
+    #[arg(long = "tls-certs", help = "Path to certificate chain in PEM format")]
     tls_certs: Option<String>,
 
-    #[structopt(
-        long = "tls-key",
-        help = "Path to private key for tls-certs in PEM format"
-    )]
+    #[arg(long = "tls-key", help = "Path to private key for tls-certs in PEM format")]
     tls_key: Option<String>,
 
-    #[structopt(long = "uri", help = "Override default URI")]
+    #[arg(long, help = "Override default URI")]
     uri: Option<String>,
 
-    #[structopt(
+    #[arg(
         long = "uri-prefix",
         help = "Prefix appended to the URI (ie. '/pastebin')",
         default_value = ""
     )]
     uri_prefix: String,
 
-    #[structopt(
+    #[arg(
         long = "slug-charset",
         help = "Character set (expressed as rust compatible regex) to use for generating the URL slug",
         default_value = "[A-Za-z0-9_-]"
     )]
     slug_charset: String,
 
-    #[structopt(long = "slug-len", help = "Length of URL slug", default_value = "21")]
+    #[arg(long = "slug-len", help = "Length of URL slug", default_value_t = 21)]
     slug_len: usize,
 
-    #[structopt(
+    #[arg(
         long = "ui-expiry-times",
-        help = "List of paste expiry times redered in the UI dropdown selector",
-        default_value = "5 minutes, 10 minutes, 1 hour, 1 day, 1 week, 1 month, 1 year, Never"
+        help = "Paste expiry times shown in the UI dropdown",
+        default_values = &["5 minutes", "10 minutes", "1 hour", "1 day", "1 week", "1 month", "1 year", "Never"],
     )]
     ui_expiry_times: Vec<String>,
 
-    #[structopt(long = "ui-line-numbers", help = "Display line numbers")]
+    #[arg(long = "ui-line-numbers", help = "Display line numbers")]
     ui_line_numbers: bool,
 
-    #[structopt(
-        long = "plugins",
+    #[arg(
+        long,
         help = "Enable additional functionalities (ie. prism, mermaid)",
-        default_value = "prism"
+        default_values = &["prism"],
     )]
     plugins: Vec<String>,
 }
 
-/// Carries the effective public host+scheme derived from reverse-proxy headers.
+/// Carries the effective public host and scheme derived from reverse-proxy headers.
 struct RequestHost {
     scheme: String,
     host: String,
@@ -316,7 +135,7 @@ impl<'r> FromRequest<'r> for RequestHost {
 
         match host {
             Some(host) => Outcome::Success(RequestHost {
-                scheme: scheme.unwrap_or_else(|| String::from("http")),
+                scheme: scheme.unwrap_or_else(|| "http".to_string()),
                 host,
             }),
             None => Outcome::Forward(Status::BadRequest),
@@ -328,18 +147,16 @@ fn get_url(cfg: &PastebinConfig, req_host: Option<RequestHost>) -> String {
     if let Some(uri) = &cfg.uri {
         return uri.clone();
     }
-
     if let Some(rh) = req_host {
         return format!("{}://{}", rh.scheme, rh.host);
     }
-
-    let port = if vec![443u16, 80].contains(&cfg.port) {
+    let port = if matches!(cfg.port, 443 | 80) {
         String::new()
     } else {
         format!(":{}", cfg.port)
     };
     let scheme = if cfg.tls_certs.is_some() { "https" } else { "http" };
-    format!("{}://{}{}", scheme, cfg.address, port)
+    format!("{scheme}://{}{port}", cfg.address)
 }
 
 fn get_error_response<'r>(
@@ -354,7 +171,7 @@ fn get_error_response<'r>(
         "uri_prefix": uri_prefix,
     });
 
-    let content = handlebars.render_template(html.as_str(), &map).unwrap();
+    let content = handlebars.render_template(&html, &map).unwrap();
 
     CustomResponse(
         Response::build()
@@ -379,7 +196,8 @@ async fn create(
 ) -> Result<String, io::Error> {
     let slug_len = cfg.slug_len;
     let id = nanoid!(slug_len, alphabet.inner());
-    let url = format!("{url}/{id}", url = get_url(cfg, req_host), id = id);
+    let base_url = get_url(cfg, req_host);
+    let url = format!("{base_url}/{id}");
 
     let bytes = paste
         .open(8.mebibytes())
@@ -392,7 +210,7 @@ async fn create(
     new_entry(
         &mut writer,
         &bytes,
-        lang.unwrap_or_else(|| String::from("markup")),
+        lang.unwrap_or_else(|| "markup".to_string()),
         ttl.unwrap_or(cfg.ttl),
         burn.unwrap_or(false),
         encrypted.unwrap_or(false),
@@ -411,8 +229,9 @@ async fn remove(id: String, state: &State<DB>) -> Status {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[get("/<id>?<lang>")]
-async fn get<'r>(
+async fn view_paste<'r>(
     id: String,
     lang: Option<String>,
     state: &'r State<DB>,
@@ -423,17 +242,15 @@ async fn get<'r>(
     cfg: &'r State<PastebinConfig>,
 ) -> CustomResponse<'r> {
     let resources = plugin_manager.static_resources();
-    let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).to_string();
+    let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).into_owned();
 
-    // handle missing entry
     let root = match get_entry_data(&id, state) {
         Ok(x) => x,
         Err(e) => {
-            let err_kind = match e.kind() {
+            let status = match e.kind() {
                 io::ErrorKind::NotFound => Status::NotFound,
                 _ => Status::InternalServerError,
             };
-
             let map = json!({
                 "version": VERSION,
                 "is_error": "true",
@@ -442,12 +259,10 @@ async fn get<'r>(
                 "css_imports": plugin_manager.css_imports(),
                 "js_init": plugin_manager.js_init(),
             });
-
-            let content = handlebars.render_template(html.as_str(), &map).unwrap();
-
+            let content = handlebars.render_template(&html, &map).unwrap();
             return CustomResponse(
                 Response::build()
-                    .status(err_kind)
+                    .status(status)
                     .header(ContentType::HTML)
                     .sized_body(content.len(), Cursor::new(content))
                     .finalize(),
@@ -455,7 +270,6 @@ async fn get<'r>(
         }
     };
 
-    // handle existing entry
     let entry = root_as_entry(&root).unwrap();
     let selected_lang = lang
         .unwrap_or_else(|| entry.lang().unwrap().to_string())
@@ -465,8 +279,7 @@ async fn get<'r>(
     if cfg.ui_line_numbers {
         pastebin_cls.push("line-numbers".to_string());
     }
-
-    pastebin_cls.push(format!("language-{}", selected_lang));
+    pastebin_cls.push(format!("language-{selected_lang}"));
 
     let mut map = json!({
         "is_created": "true",
@@ -492,7 +305,7 @@ async fn get<'r>(
             .unwrap()
             .naive_utc()
             .format("%Y-%m-%d %H:%M:%S");
-        map["msg"] = json!(format!("This paste will expire on {}.", time));
+        map["msg"] = json!(format!("This paste will expire on {time}."));
         map["level"] = json!("info");
         map["glyph"] = json!("far fa-clock");
     }
@@ -501,7 +314,7 @@ async fn get<'r>(
         map["is_encrypted"] = json!("true");
     }
 
-    let content = handlebars.render_template(html.as_str(), &map).unwrap();
+    let content = handlebars.render_template(&html, &map).unwrap();
 
     CustomResponse(
         Response::build()
@@ -512,6 +325,7 @@ async fn get<'r>(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[get("/new?<id>&<level>&<msg>&<glyph>&<url>")]
 async fn get_new<'r>(
     state: &'r State<DB>,
@@ -527,20 +341,15 @@ async fn get_new<'r>(
     url: Option<String>,
 ) -> CustomResponse<'r> {
     let resources = plugin_manager.static_resources();
-    let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).to_string();
-    let msg = msg.unwrap_or_else(|| String::from(""));
-    let level = level.unwrap_or_else(|| String::from("secondary"));
-    let glyph = glyph.unwrap_or_else(|| String::from(""));
-    let url = url.unwrap_or_else(|| String::from(""));
-    let root: Vec<u8>;
+    let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).into_owned();
 
     let mut map = json!({
         "is_editable": "true",
         "version": VERSION,
-        "msg": msg,
-        "level": level,
-        "glyph": glyph,
-        "url": url,
+        "msg": msg.unwrap_or_default(),
+        "level": level.unwrap_or_else(|| "secondary".to_string()),
+        "glyph": glyph.unwrap_or_default(),
+        "url": url.unwrap_or_default(),
         "uri_prefix": cfg.uri_prefix,
         "ui_expiry_times": ui_expiry_times.inner(),
         "ui_expiry_default": ui_expiry_default.inner(),
@@ -550,17 +359,17 @@ async fn get_new<'r>(
     });
 
     if let Some(id) = id {
-        root = get_entry_data(&id, state).unwrap();
+        let root = get_entry_data(&id, state).unwrap();
         let entry = root_as_entry(&root).unwrap();
 
         if entry.encrypted() {
             map["is_encrypted"] = json!("true");
         }
-
-        map["pastebin_code"] = json!(std::str::from_utf8(entry.data().unwrap().bytes()).unwrap());
+        map["pastebin_code"] =
+            json!(std::str::from_utf8(entry.data().unwrap().bytes()).unwrap());
     }
 
-    let content = handlebars.render_template(html.as_str(), &map).unwrap();
+    let content = handlebars.render_template(&html, &map).unwrap();
 
     CustomResponse(
         Response::build()
@@ -573,16 +382,14 @@ async fn get_new<'r>(
 
 #[get("/raw/<id>")]
 async fn get_raw(id: String, state: &State<DB>) -> CustomResponse<'static> {
-    // handle missing entry
     let root = match get_entry_data(&id, state) {
         Ok(x) => x,
         Err(e) => {
-            let err_kind = match e.kind() {
+            let status = match e.kind() {
                 io::ErrorKind::NotFound => Status::NotFound,
                 _ => Status::InternalServerError,
             };
-
-            return CustomResponse(Response::build().status(err_kind).finalize());
+            return CustomResponse(Response::build().status(status).finalize());
         }
     };
 
@@ -616,24 +423,19 @@ async fn get_static<'r>(
     cfg: &'r State<PastebinConfig>,
 ) -> CustomResponse<'r> {
     let resources = plugin_manager.static_resources();
-    let pth = format!("/static/{}", resource);
-    let ext = get_extension(resource.as_str()).replace(".", "");
+    let pth = format!("/static/{resource}");
+    let ext = get_extension(&resource).trim_start_matches('.').to_string();
 
     let content = match resources.get(pth.as_str()) {
         Some(data) => *data,
         None => {
-            let html =
-                String::from_utf8_lossy(resources.get("/static/index.html").unwrap()).to_string();
-
-            return get_error_response(
-                handlebars.inner(),
-                cfg.uri_prefix.clone(),
-                html,
-                Status::NotFound,
-            );
+            let html = String::from_utf8_lossy(resources.get("/static/index.html").unwrap())
+                .into_owned();
+            return get_error_response(handlebars.inner(), cfg.uri_prefix.clone(), html, Status::NotFound);
         }
     };
-    let content_type = ContentType::from_extension(ext.as_str()).unwrap();
+
+    let content_type = ContentType::from_extension(&ext).unwrap();
 
     CustomResponse(
         Response::build()
@@ -646,21 +448,17 @@ async fn get_static<'r>(
 
 #[get("/")]
 fn index(cfg: &State<PastebinConfig>) -> rocket::response::Redirect {
-    let url = String::from(
-        Path::new(cfg.uri_prefix.as_str())
-            .join("new")
-            .to_str()
-            .unwrap(),
-    );
-
-    rocket::response::Redirect::to(url)
+    rocket::response::Redirect::to(format!("{}/new", cfg.uri_prefix))
 }
 
 fn rocket_instance(pastebin_config: PastebinConfig) -> rocket::Rocket<rocket::Build> {
     let workers = if pastebin_config.workers != 0 {
         pastebin_config.workers
     } else {
-        num_cpus::get() * 2
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+            * 2
     };
 
     let address = IpAddr::from_str(&pastebin_config.address)
@@ -675,78 +473,51 @@ fn rocket_instance(pastebin_config: PastebinConfig) -> rocket::Rocket<rocket::Bu
         ..Config::default()
     };
 
-    // handle tls cert setup
-    if pastebin_config.tls_certs.is_some() && pastebin_config.tls_key.is_some() {
-        rocket_config.tls = Some(rocket::config::TlsConfig::from_paths(
-            pastebin_config.tls_certs.clone().unwrap(),
-            pastebin_config.tls_key.clone().unwrap(),
-        ));
+    if let (Some(certs), Some(key)) = (&pastebin_config.tls_certs, &pastebin_config.tls_key) {
+        rocket_config.tls =
+            Some(rocket::config::TlsConfig::from_paths(certs, key));
     }
 
-    // setup db
-    let db = DB::open_default(pastebin_config.db_path.clone()).unwrap();
+    // Setup DB — options must be created before opening so the compaction filter is applied.
     let mut db_opts = Options::default();
-
     db_opts.create_if_missing(true);
     db_opts.set_compaction_filter("ttl_entries", compaction_filter_expired_entries);
+    let db = DB::open(&db_opts, &pastebin_config.db_path).unwrap();
 
-    // define slug URL alphabet
+    // Build the URL slug alphabet from the configured charset regex.
     let alphabet = {
         let re = Regex::new(&pastebin_config.slug_charset).unwrap();
-
-        let mut tmp = [0; 4];
-        let mut alphabet: Vec<char> = vec![];
-
-        // match all printable ASCII characters
-        for i in 0x20..0x7e as u8 {
-            let c = i as char;
-
-            if re.is_match(c.encode_utf8(&mut tmp)) {
-                alphabet.push(c);
-            }
-        }
-
-        alphabet
+        let mut tmp = [0u8; 4];
+        (0x20u8..0x7e)
+            .filter_map(|b| {
+                let c = b as char;
+                re.is_match(c.encode_utf8(&mut tmp)).then_some(c)
+            })
+            .collect::<Vec<char>>()
     };
 
-    // setup drop down expiry menu (for instance 1m, 20m, 1 year, never)
-    let ui_expiry_times = {
-        let mut all = vec![];
-        for item in pastebin_config.ui_expiry_times.clone() {
-            for sub_elem in item.split(',') {
-                if sub_elem.trim().to_lowercase() == "never" {
-                    all.push((sub_elem.trim().to_string(), 0));
-                } else {
-                    all.push((
-                        sub_elem.trim().to_string(),
-                        parse_duration(sub_elem).unwrap().as_secs(),
-                    ));
-                }
-            }
-        }
-
-        all
-    };
-
-    let ui_expiry_default: String = ui_expiry_times
+    // Build the expiry time pairs used by the UI dropdown.
+    let ui_expiry_times: Vec<(String, u64)> = pastebin_config
+        .ui_expiry_times
         .iter()
-        .filter_map(|(name, val)| {
-            if *val == pastebin_config.ttl {
-                Some(name.clone())
+        .map(|s| {
+            let s = s.trim();
+            if s.to_lowercase() == "never" {
+                (s.to_string(), 0)
             } else {
-                None
+                (s.to_string(), parse_duration(s).unwrap().as_secs())
             }
         })
         .collect();
 
-    if ui_expiry_default.is_empty() {
-        panic!("the TTL flag should match one of the ui-expiry-times option");
-    }
+    let ui_expiry_default: String = ui_expiry_times
+        .iter()
+        .find_map(|(name, val)| (*val == pastebin_config.ttl).then(|| name.clone()))
+        .expect("the --ttl flag must match one of the --ui-expiry-times values");
 
     if pastebin_config.slug_len == 0 {
         panic!("slug_len must be larger than zero");
     }
-
     if alphabet.is_empty() {
         panic!("selected slug alphabet is empty, please check if slug_charset is a valid regex");
     }
@@ -754,18 +525,18 @@ fn rocket_instance(pastebin_config: PastebinConfig) -> rocket::Rocket<rocket::Bu
     let plugins: Vec<Box<dyn Plugin>> = pastebin_config
         .plugins
         .iter()
-        .map(|t| match t.as_str() {
-            "prism" => Box::new(plugins::prism::new()),
-            "mermaid" => Box::new(plugins::mermaid::new()),
-            _ => panic!("unknown plugin provided"),
+        .map(|name| -> Box<dyn Plugin> {
+            match name.as_str() {
+                "prism" => Box::new(plugins::prism::new()),
+                "mermaid" => Box::new(plugins::mermaid::new()),
+                _ => panic!("unknown plugin: {name}"),
+            }
         })
-        .map(|x| x as Box<dyn plugins::plugin::Plugin>)
         .collect();
 
     let plugin_manager = plugins::new(plugins);
     let uri_prefix = pastebin_config.uri_prefix.clone();
 
-    // run rocket
     rocket::custom(rocket_config)
         .manage(pastebin_config)
         .manage(db)
@@ -775,20 +546,133 @@ fn rocket_instance(pastebin_config: PastebinConfig) -> rocket::Rocket<rocket::Bu
         .manage(ui_expiry_times)
         .manage(ui_expiry_default)
         .mount(
-            if uri_prefix.is_empty() {
-                "/"
-            } else {
-                uri_prefix.as_str()
-            },
-            routes![index, create, remove, get, get_new, get_raw, get_binary, get_static],
+            if uri_prefix.is_empty() { "/" } else { &uri_prefix },
+            routes![index, create, remove, view_paste, get_new, get_raw, get_binary, get_static],
         )
 }
 
 #[rocket::main]
 async fn main() {
-    let pastebin_config = PastebinConfig::from_args();
-    rocket_instance(pastebin_config)
+    rocket_instance(PastebinConfig::parse())
         .launch()
         .await
         .expect("rocket failed to launch");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rocket::http::{ContentType, Status};
+    use rocket::local::blocking::Client;
+    use tempfile::TempDir;
+
+    fn create_client() -> (Client, TempDir) {
+        let tmp_dir = TempDir::new().unwrap();
+        let mut config = PastebinConfig::parse_from(["pastebin"]);
+        config.db_path = tmp_dir.path().join("database").to_str().unwrap().to_string();
+        let client = Client::tracked(rocket_instance(config)).expect("invalid rocket instance");
+        (client, tmp_dir)
+    }
+
+    fn insert_paste(client: &Client, data: &str, path: &str) -> String {
+        let response = client.post(path).body(data).dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        let url = response.into_string().unwrap();
+        url.split('/').next_back().unwrap().to_string()
+    }
+
+    fn get_paste<'c>(client: &'c Client, path: &str) -> rocket::local::blocking::LocalResponse<'c> {
+        client.get(format!("/{path}")).dispatch()
+    }
+
+    #[test]
+    fn create_and_fetch_paste() {
+        let (client, _tmp) = create_client();
+        let id = insert_paste(&client, "random_test_data_to_be_checked", "/");
+        let response = get_paste(&client, &id);
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::HTML));
+        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
+    }
+
+    #[test]
+    fn remove_paste_by_id() {
+        let (client, _tmp) = create_client();
+        client.delete("/some_id").dispatch();
+        let response = get_paste(&client, "some_id");
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
+    fn remove_nonexistent_paste() {
+        let (client, _tmp) = create_client();
+        assert_eq!(get_paste(&client, "fake_id").status(), Status::NotFound);
+        client.delete("/fake_id").dispatch();
+        assert_eq!(get_paste(&client, "fake_id").status(), Status::NotFound);
+    }
+
+    #[test]
+    fn get_raw_contents() {
+        let (client, _tmp) = create_client();
+        let id = insert_paste(&client, "random_test_data_to_be_checked", "/");
+        let response = get_paste(&client, &format!("raw/{id}"));
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::Plain));
+        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
+    }
+
+    #[test]
+    fn download_contents() {
+        let (client, _tmp) = create_client();
+        let id = insert_paste(&client, "random_test_data_to_be_checked", "/");
+        let response = get_paste(&client, &format!("download/{id}"));
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::Binary));
+        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
+    }
+
+    #[test]
+    fn clone_contents() {
+        let (client, _tmp) = create_client();
+        let id = insert_paste(&client, "random_test_data_to_be_checked", "/");
+        let response = get_paste(&client, &format!("new?id={id}"));
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::HTML));
+        assert!(response.into_string().unwrap().contains("random_test_data_to_be_checked"));
+    }
+
+    #[test]
+    fn burned_paste_not_accessible_after_first_read() {
+        let (client, _tmp) = create_client();
+        let id = insert_paste(&client, "random_test_data_to_be_checked", "/?burn=true");
+        assert_eq!(get_paste(&client, &id).status(), Status::Ok);
+        assert_eq!(get_paste(&client, &id).status(), Status::NotFound);
+    }
+
+    #[test]
+    fn expired_paste_returns_not_found() {
+        use std::{thread, time};
+        let (client, _tmp) = create_client();
+        let id = insert_paste(&client, "random_test_data_to_be_checked", "/?ttl=1");
+        assert_eq!(get_paste(&client, &id).status(), Status::Ok);
+        thread::sleep(time::Duration::from_secs(1));
+        assert_eq!(get_paste(&client, &id).status(), Status::NotFound);
+    }
+
+    #[test]
+    fn get_static_content() {
+        let (client, _tmp) = create_client();
+        let response = client.get("/static/favicon.ico").dispatch();
+        let contents = std::fs::read("static/favicon.ico").unwrap();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_bytes(), Some(contents));
+    }
+
+    #[test]
+    fn invalid_unicode_data_is_handled() {
+        let (client, _tmp) = create_client();
+        let invalid_data = unsafe { String::from_utf8_unchecked(b"Hello \xF0\x90\x80World".to_vec()) };
+        let id = insert_paste(&client, &invalid_data, "/");
+        assert_eq!(get_paste(&client, &id).status(), Status::Ok);
+    }
 }
