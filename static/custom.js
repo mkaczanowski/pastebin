@@ -202,6 +202,7 @@ $(document).ready(function() {
                 url: uri,
                 type: 'POST',
                 data: payload,
+                contentType: 'test/plain',
                 success: function(result) {
                     var dest = uri_prefix + "/new";
                     dest = replaceUrlParam(dest, 'level', "success");
